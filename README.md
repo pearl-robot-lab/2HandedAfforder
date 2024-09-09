@@ -16,10 +16,22 @@ python demo.py
 ```
 to generate the sparse masks. These will get stored in `../EPIC_DATA/segmentations`
 
-## Step 3: Run the pipeline
-Within the main folder run
+## Step 3: Download the model checkpoints for MI-GAN, agent-inpainting and XMem
+
+See README.md of submodules
+
+## Step 4: Run the data processing pipeline
 ```
-chmod +x pipeline.bash
 ./pipeline.bash PXX PXX_XX
 ```
-Exchange XX for the video file of EPIC-KITCHENS you want to process. Each individual step will get stored within the `EPIC_DATA` folder
+Exchange XX for the video file of EPIC-KITCHENS you want to process. Each individual step will get stored within the `EPIC_DATA` folder.
+To delete the entire processed data of a video from the dataset, do
+```
+./delete_video.bash PXX_XX
+```
+The video itself will not be deleted
+
+## Step 5: Convert the data into a HDF5 format
+```
+./post_process.bash PXX_XX
+```
