@@ -135,11 +135,22 @@ If you need to install additional packages, you can acquire root privileges usin
 ### Extending the Docker Image
 The `Dockerfile` I used to create this environment is at [pearl_hessian_cluster/Dockerfile](pearl_hessian_cluster/Dockerfile). You have to upload your new Docker container to [https://hub.docker.com](https://hub.docker.com) and change the `cpu` and `cuda` images in `advanced_config.yaml` accordingly.
 
+### Launching a determined experiment instead of shell
+You can launch a determined experiment with an entrypoint instead of connecting to a shell.
+
+The experiment can be tracked in the determined web browser [https://login01.ai.tu-darmstadt.de:8080/det](https://login01.ai.tu-darmstadt.de:8080/det). Have a look at an example in the `2haff_cluster_exp_config.yaml` file. The full reference for det experiment commands is available here: [https://docs.determined.ai/0.17.2/training-apis/experiment-config.html](https://docs.determined.ai/0.17.2/training-apis/experiment-config.html).
+
+To launch the experiment, run:
+```
+det experiment create ./2haff_cluster_exp_config.yaml
+```
+
 ### Untested Features
 Here is a list of features that should work but are not tested yet:
 - Manuel Brack has created a Docker image that could be useful: `mbrack/forty-two:cuda-12.5-pytorch-2.2-gpu-mpi-multimodal`. It uses torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1, 
 already has cuda and cuda-toolkit at 12.5 preinstalled.
 Some of the more annoying dependencies like flash-attn and all of rapids are also included.
 - [ ] Infiniband. All drivers should be installed and the Infiniband device is mounted at `/dev/infiniband/`
+
 ### Bugs / Missing Features
 Feel free to add bugs and missing features in the Docker image here.
