@@ -2,15 +2,18 @@ name: 2haff_config
 workspace: PI_Chalvatzaki
 project: 2HAff
 
+max_restarts: 0
+
 resources:
   devices:
     - container_path: /dev/infiniband/
       host_path: /dev/infiniband/
       mode: mrw
   resource_pool: 42_Compute
-  slots: 0 # GPUs
+  slots_per_trial: 1 # # GPUs
 
-entrypoint: source ~/.bashrc && conda activate /shared/conda/2handedafforder && cd /shared/2HandedAfforder/agent_inpainting && python demo_script_batch.py demo_data_batch out >> test_log.txt
+# entrypoint starts with "sh -c"
+entrypoint: exec bash -c 'source ~/.bashrc && conda activate ~/conda/2handedafforder && cd ~/2HandedAfforder/agent_inpainting && python demo_script_batch.py demo_data_batch out >> test_log.txt'
 
 environment:
   add_capabilities:
@@ -34,3 +37,9 @@ bind_mounts:
     host_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared
   - container_path: /run/determined/workdir
     host_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/home/sj93qicy
+
+searcher:
+    name: single
+    metric: validation_loss
+    max_length:
+      epochs: 1
