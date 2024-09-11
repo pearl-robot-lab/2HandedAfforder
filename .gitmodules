@@ -1,3 +1,6 @@
 [submodule "agent_inpainting"]
 	path = agent_inpainting
 	url = https://gitlab.pearl.informatik.tu-darmstadt.de/research/perception/agent_inpainting.git
+[submodule "MI-GAN"]
+	path = MI-GAN
+	url = https://gitlab.pearl.informatik.tu-darmstadt.de/research/perception/mi-gan.git
