@@ -7,3 +7,6 @@
 [submodule "VISOR-VIS_Mod"]
 	path = VISOR-VIS_Mod
 	url = https://gitlab.pearl.informatik.tu-darmstadt.de/research/perception/VISOR-VIS_Mod.git
+[submodule "XMem_Batch"]
+	path = XMem_Batch
+	url = https://gitlab.pearl.informatik.tu-darmstadt.de/research/perception/XMem_Batch.git
