@@ -608,27 +608,29 @@ elif vals["recolor_masks_white"] != None:
     print("Recoloring masks white at: ", vals["recolor_masks_white"])
     folder_path = vals["recolor_masks_white"]
     recolor_masks_white(folder_path)
-    print("Done")
+    print("Done recoloring masks")
 elif vals["copy_prompt_files"] != None:
     folder_path = vals["copy_prompt_files"]
     copy_prompt_files(folder_path)
 elif vals["move_ws_to_data_file_ws"] != None and vals["move_ws_to_data_file_dst"] != None:
+    print("start move ws to data file ws")
     ws_path = vals["move_ws_to_data_file_ws"]
     dst_path = vals["move_ws_to_data_file_dst"]
     move_ws_to_data_file(ws_path, dst_path)
+    print("done move ws to data file ws")
 elif vals["dilate_masks_dir"] != None:
     print("Dilating masks at: ", vals["dilate_masks_dir"])
     folder_path = vals["dilate_masks_dir"]
     dilate_fac = int(vals["dilate_masks_fac"])
     dilate_masks(folder_path, dilate_fac)
-    print("Done")
+    print("Done dilating masks")
 elif vals["calculate_mask_difference_pre"] != None and vals["calculate_mask_difference_post"] != None and vals["calculate_mask_difference_out"] != None:
     print("Creating mask differences")
     mask_prev = vals["calculate_mask_difference_pre"]
     mask_post = vals["calculate_mask_difference_post"]
     out = vals["calculate_mask_difference_out"]
     calculate_mask_difference(mask_prev, mask_post, out)
-    print("Done")
+    print("Done creating mask diffs")
 elif vals["regenerate_mask_src"] != None:
     print("Regenerating masks")
     folder_path = vals["regenerate_mask_src"]
