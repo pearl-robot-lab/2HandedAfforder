@@ -45,17 +45,18 @@ cd ../agent_inpainting
 python demo_script_batch.py ../EPIC_DATA/xmem_masks_batched/$2 ../EPIC_DATA/hand_inpainting/$2
 rm -r ../XMem_Batch/segmentations/$2
 rm -r ../EPIC_DATA/xmem_masks_restructured/$2
+rm -r ../EPIC_DATA/xmem_masks_batched/$2
 cd ../scripts
 # Perform object completion
 #iopaint run --image EPIC_DATA/xmem_masks/$2/object/left --mask EPIC_DATA/xmem_masks/$2/hand/left --output EPIC_DATA/mask_completion/$2/left --model migan
 #iopaint run --image EPIC_DATA/xmem_masks/$2/object/right --mask EPIC_DATA/xmem_masks/$2/hand/right --output EPIC_DATA/mask_completion/$2/right --model migan
-python helper.py --batchify_migan_dir ../EPIC_DATA/xmem_masks/$2/object/left --batchify_migan_batchsize 16 --batchify_migan_out ../EPIC_DATA/xmem_masks_batched/$2/left
-python helper.py --batchify_migan_dir ../EPIC_DATA/xmem_masks/$2/object/right --batchify_migan_batchsize 16 --batchify_migan_out ../EPIC_DATA/xmem_masks_batched/$2/right
-python helper.py --batchify_migan_dir ../EPIC_DATA/xmem_masks/$2/hand/both --batchify_migan_batchsize 16 --batchify_migan_out ../EPIC_DATA/xmem_masks_batched/$2/hand
+python helper.py --batchify_migan_dir ../EPIC_DATA/xmem_masks/$2/hand/left --batchify_migan_batchsize 16 --batchify_migan_out ../EPIC_DATA/xmem_masks_batched/$2/hand/left
+python helper.py --batchify_migan_dir ../EPIC_DATA/xmem_masks/$2/hand/right --batchify_migan_batchsize 16 --batchify_migan_out ../EPIC_DATA/xmem_masks_batched/$2/hand/right
+python helper.py --batchify_migan_dir ../EPIC_DATA/xmem_masks/$2/hand/both --batchify_migan_batchsize 16 --batchify_migan_out ../EPIC_DATA/xmem_masks_batched/$2/hand/both
 cd ../MI-GAN 
-python -m scripts.demo --model-name migan-512 --model-path ./models/migan_512_places2.pt --images-dir ../EPIC_DATA/xmem_masks_batched/$2/left --masks-dir ../EPIC_DATA/xmem_masks/$2/hand/left --output-dir ../EPIC_DATA/mask_completion/$2/left --device cuda --invert-mask
-python -m scripts.demo --model-name migan-512 --model-path ./models/migan_512_places2.pt --images-dir ../EPIC_DATA/xmem_masks_batched/$2/right --masks-dir ../EPIC_DATA/xmem_masks/$2/hand/right --output-dir ../EPIC_DATA/mask_completion/$2/right --device cuda --invert-mask
-python -m scripts.demo --model-name migan-512 --model-path ./models/migan_512_places2.pt --images-dir ../EPIC_DATA/frames/$1/$2 --masks-dir ../EPIC_DATA/xmem_masks_batched/$2/hand --output-dir ../EPIC_DATA/inpainted_hands_migan/$2 --device cuda --invert-mask
+python -m scripts.demo --model-name migan-512 --model-path ./models/migan_512_places2.pt --images-dir ../EPIC_DATA/xmem_masks/$2/object/left --masks-dir ../EPIC_DATA/xmem_masks_batched/$2/hand/left --output-dir ../EPIC_DATA/mask_completion/$2/left --device cuda --invert-mask
+python -m scripts.demo --model-name migan-512 --model-path ./models/migan_512_places2.pt --images-dir ../EPIC_DATA/xmem_masks/$2/object/right --masks-dir ../EPIC_DATA/xmem_masks_batched/$2/hand/right --output-dir ../EPIC_DATA/mask_completion/$2/right --device cuda --invert-mask
+python -m scripts.demo --model-name migan-512 --model-path ./models/migan_512_places2.pt --images-dir ../EPIC_DATA/frames/$1/$2 --masks-dir ../EPIC_DATA/xmem_masks_batched/$2/hand/both --output-dir ../EPIC_DATA/inpainted_hands_migan/$2 --device cuda --invert-mask
 rm -r ../EPIC_DATA/xmem_masks_batched/$2
 
 # Perform post processing
