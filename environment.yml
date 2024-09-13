@@ -209,7 +209,6 @@ dependencies:
     - tensorboard==2.14.0
     - tensorboard-data-server==0.7.2
     - test-tube==0.7.5
-    - thinplate==1.0.0
     - tifffile==2023.7.10
     - timm==1.0.7
     - tokenizers==0.19.1
