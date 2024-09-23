@@ -468,15 +468,15 @@ def batchify_migan(dir, batch_size, out):
     counter = 0
     batch = 0
     for file in files:
+        if counter >= batch_size:
+            batch += 1
+            counter = 0
         file_path = os.path.join(dir, file)
         new_path = os.path.join(out, str(batch))
         if not os.path.exists(new_path):
             os.makedirs(new_path)
         new_file_path = os.path.join(new_path, file)
         shutil.copy(file_path, new_file_path)
-        if counter >= batch_size:
-            batch += 1
-            counter = 0
         counter += 1
 
 def batchify_agent_inp(dirs, out, batch_size):
