@@ -13,7 +13,10 @@ resources:
   slots_per_trial: 1 # # GPUs
 
 # entrypoint starts with "sh -c"
-entrypoint: exec bash -c 'source ~/.bashrc && conda activate ~/conda/2handedafforder && cd ~/2HandedAfforder/agent_inpainting && python demo_script_batch.py demo_data_batch out >> test_log.txt'
+entrypoint: exec bash -c 'source /shared/2handedafforder/activate.bash && cd /shared/2handedafforder/ && bash pipeline.bash P25 P25_107 >> P25_107_log.txt'
+#entrypoint: exec bash -c 'source /shared/2handedafforder/training/activate.bash && cd /shared/2handedafforder/training && python train_custom_sam.py --data-folder ../EPIC_DATA/hdf5_bowl --model-folder models_bowl >> test_log.txt'
+#entrypoint: exec bash -c 'source /shared/2handedafforder/training/activate.bash && cd /shared/2handedafforder/clip_sam/model && python train_clip_sam.py --data-folder ../../EPIC_DATA/hdf5_categories --model-folder checkpoint_categories >> test_log.txt'
+
 
 environment:
   add_capabilities:
@@ -31,12 +34,12 @@ bind_mounts:
     read_only: false
   - container_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki
     host_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki
-  - container_path: /pfss/mlde/users/sj93qicy
-    host_path: /pfss/mlde/users/sj93qicy
+  - container_path: /pfss/mlde/users/mh65gymu
+    host_path: /pfss/mlde/users/mh65gymu
   - container_path: /shared
     host_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared
   - container_path: /run/determined/workdir
-    host_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/home/sj93qicy
+    host_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/home/mh65gymu
 
 searcher:
     name: single
