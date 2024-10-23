@@ -18,7 +18,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
 from segment_anything import build_sam_vit_b
 from segment_anything.modeling import Sam
-from transformers import SamModel, SamProcessor
+from transformers import SamProcessor
 from typing import Optional, Tuple
 from aff_model import TwoHandedAfforder
 from dataset import AffDataset
@@ -36,7 +36,7 @@ class AffordanceDetection():
 
     self.device = "cuda" if torch.cuda.is_available() else "cpu"
     self.seg_loss = monai.losses.DiceCELoss(sigmoid=True, squared_pred=True, reduction='mean')
-    self.optimizer = Adam([{'params': self.model.sam.mask_decoder.parameters()}, {'params': self.model.text_hidden_fcs.parameters()}], lr=1e-5, weight_decay=0)
+    self.optimizer = Adam([{'params': self.model.module.sam.mask_decoder.parameters()}, {'params': self.model.module.text_hidden_fcs.parameters()}], lr=1e-5, weight_decay=0)
     self.train_loader = None
     self.validation_loader = None
 
@@ -61,7 +61,7 @@ class AffordanceDetection():
         else:
             aff.append(cv2.cvtColor(aff_right[i], cv2.COLOR_BGR2GRAY))
       else:
-          continue
+          aff.append(cv2.cvtColor(aff_left[i], cv2.COLOR_BGR2GRAY))
     aff = torch.tensor(np.array(aff))
     return aff
 
@@ -161,9 +161,10 @@ class AffordanceDetection():
         pred_masks = torch.cat([x["masks"] for x in outputs]).float()
         gt_masks = batch["ground_truth_mask"].unsqueeze(1).float() / 255
         vloss = self.seg_loss(pred_masks, gt_masks.to(self.device))
+        acc = monai.metrics.compute_iou(pred_masks, gt_masks.to(self.device)).mean()
         epoch_vlosses.append(vloss.item())
         #acc = monai.metric.compute_iou(pred_masks, ground_truth_masks.unsqueeze(1))
-        #accuracies.append(acc.item())
+        accuracies.append(acc.item())
     return epoch_vlosses, accuracies
 
 
@@ -175,9 +176,9 @@ class AffordanceDetection():
     random_seed = 42
     
     wandb.init(
-      project="test_clip_sam",
+      project="2HAff",
       config={
-        "dataset": "7_Category_Dataset (P01_01, P02_01, P03_03, P04_02, P14_05, P20_03)",
+        "dataset": "EPIC_Affordance",
         "epochs": self.num_epochs,
         "batchsize": self.batchsize
       }
@@ -193,8 +194,8 @@ class AffordanceDetection():
     train_sampler = SubsetRandomSampler(train_indices)
     valid_sampler = SubsetRandomSampler(val_indices)
     
-    self.train_loader = DataLoader(dset, batch_size=self.batchsize, sampler=train_sampler)
-    self.validation_loader = DataLoader(dset, batch_size=self.batchsize, sampler=valid_sampler)
+    self.train_loader = DataLoader(dset, batch_size=self.batchsize, sampler=train_sampler, num_workers=2, pin_memory=True, multiprocessing_context="fork")
+    self.validation_loader = DataLoader(dset, batch_size=self.batchsize, sampler=valid_sampler, num_workers=2, pin_memory=True, multiprocessing_context="fork")
 
     self.model.to(self.device)
     for epoch in range(self.num_epochs):
@@ -205,10 +206,14 @@ class AffordanceDetection():
       print(f'EPOCH: {epoch}')
       print(f'Mean loss training: {mean(epoch_losses)}')
       print(f'Mean loss validation: {mean(epoch_vlosses)}')
+      print(f'Mean IoU: {mean(accuracies)}')
       wandb.log({'train_loss': mean(epoch_losses)})
       wandb.log({'loss': mean(epoch_vlosses)})
+      wandb.log({'acc (IoU)': mean(accuracies)})
       #wandb.log({'acc': mean(accuracies)})
-    torch.save(self.model.state_dict(), os.path.join(self.model_folder, self.model_name))
+      if epoch % 10 == 0:
+        torch.save(self.model.state_dict(), os.path.join(self.model_folder, str(epoch) + "_" + self.model_name))
+    torch.save(self.model.module.state_dict(), os.path.join(self.model_folder, self.model_name))
     wandb.finish()
 
   def test_on_single_image(self, img, prompt):
@@ -295,7 +300,9 @@ def main(data_folder, bbox_eps, checkpoint_file, visualization_active, batchsize
       "in_dim": 512,
       "out_dim": 256
     }
-    clip_sam = TwoHandedAfforder(sam_model, config)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    clip_sam = TwoHandedAfforder(sam_model, config, device)
+    clip_sam = nn.DataParallel(clip_sam)
   else:
     sam_model = build_sam_vit_b("pretrained/sam_vit_b_01ec64.pth")
     processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
@@ -305,6 +312,7 @@ def main(data_folder, bbox_eps, checkpoint_file, visualization_active, batchsize
     }
     clip_sam =  TwoHandedAfforder(sam_model, config)
     clip_sam.load_state_dict(torch.load(checkpoint_file))
+    clip_sam = nn.DataParallel(clip_sam)
 
   # Instantiate affordance detection object
   haff_model = AffordanceDetection(clip_sam, processor, bbox_eps, batchsize, model_folder, model_name, num_epochs, visualization_active)

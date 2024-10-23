@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import monai
 import numpy as np 
 import os
+import time
 import torch
 import wandb
 
@@ -22,12 +23,12 @@ from torch.optim import Adam
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
-from segment_anything import build_sam_vit_b
-from segment_anything.modeling import Sam
+from segment_anything_copy import build_sam_vit_b
+from segment_anything_copy.modeling import Sam
 from transformers import SamProcessor
 from typing import Optional, Tuple
-from aff_model import TwoHandedAfforder
-from dataset import AffDataset
+from aff_model_new import TwoHandedAfforder
+from dataset_new import AffDataset
 
 def ddp_setup(rank: int, world_size: int):
     """
@@ -42,9 +43,11 @@ def ddp_setup(rank: int, world_size: int):
 
 def prepare_data(data_folder, model_folder, bbox_eps):
     files = os.listdir(data_folder)
-    affs = []
+    affs_left = []
+    affs_right = []
     bboxes = []
     images = []
+    taxonomies = []
     text_prompts = []
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
@@ -62,6 +65,7 @@ def prepare_data(data_folder, model_folder, bbox_eps):
             obj_right = np.array(f[a_group_key]["obj_mask_right"])
             text = np.array(f[a_group_key]["narration"])
             imgs = np.array(f[a_group_key]["inpainted"])
+            taxonomy = np.array(f[a_group_key]["taxonomy"])
             if imgs.size == 0:
                 continue
             assert obj_left.shape == obj_right.shape
@@ -81,28 +85,49 @@ def prepare_data(data_folder, model_folder, bbox_eps):
         for img in imgs:
             resized_imgs.append(cv2.resize(img, (aff_left.shape[1], aff_left.shape[2])))
         images.append(np.array(resized_imgs))
-        aff = extract_tensor(aff_left, aff_right)
-        affs.append(aff)
+        for i in range(aff_left.shape[0]):
+            if is_valid(aff_left[i], aff_right[i]) == 'left':
+                taxonomies.append(np.array([1, 0, 0, 0]))
+            elif is_valid(aff_left[i], aff_right[i]) == 'right':
+                taxonomies.append(np.array([0, 1, 0, 0]))
+            else:
+                if np.array_equal(taxonomy[i], np.array([0, 1, 0])):
+                    taxonomies.append(np.array([0, 0, 1, 0]))
+                else:
+                    taxonomies.append(np.array([0, 0, 0, 1]))
+
+        #aff = extract_tensor(aff_left, aff_right)
+        for i in range(aff_left.shape[0]):
+            affs_left.append(cv2.cvtColor(aff_left[i], cv2.COLOR_BGR2GRAY))
+            affs_right.append(cv2.cvtColor(aff_right[i], cv2.COLOR_BGR2GRAY))
+        #affs.append(aff)
         text_prompts.extend(text.tolist())
     # print("Number of Text Prompts: ", text_prompts)
     #aff_all = torch.cat(affs)
     #aff_arr = aff_all.cpu().detach().numpy()
+    affs_left_arr = np.array(affs_left)
+    affs_right_arr = np.array(affs_right)
     bbox_arr = np.array(bboxes)
     images_arr = np.concatenate(images)
+    taxonomies_arr = np.array(taxonomies)
+    #print("Affs Left: ", affs_left_arr.shape)
+    #print("Affs Right: ", affs_right_arr.shape)
+    #print("Taxonomies: ", taxonomies_arr.shape)
+    #print("Images: ", images_arr.shape)
     """
     if self.visualization_active:
         for i in range(aff_arr.shape[0]):
         self.visualize_datapoint(images_arr[i], bbox_arr[i], aff_arr[i])
     """
-    return affs, bbox_arr, images_arr, text_prompts
+    return affs_left_arr, affs_right_arr, bbox_arr, images_arr, text_prompts, taxonomies_arr
 
 def is_valid(aff_left, aff_right):
     assert aff_left.shape == aff_right.shape
     if (not np.any(aff_left) and np.any(aff_right)) or (not np.any(aff_right) and np.any(aff_left)):
-        return True, "right" if np.any(aff_right) else "left"
-    else:
+        return "right" if np.any(aff_right) else "left"
+    elif not np.any(aff_left) and not np.any(aff_right):
         print("found invalid datapoint")
-    return False, ""
+    return "both"
     
 def extract_tensor(aff_left, aff_right, bbox_left=None, bbox_right=None):
     assert aff_left.shape[0] == aff_right.shape[0]
@@ -118,6 +143,33 @@ def extract_tensor(aff_left, aff_right, bbox_left=None, bbox_right=None):
             aff.append(cv2.cvtColor(aff_left[i], cv2.COLOR_BGR2GRAY))
     aff = torch.tensor(np.array(aff))
     return aff
+
+def sigmoid_focal_loss(inputs, targets, alpha: float = 0.25, gamma: float = 2):
+    """
+    Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
+    Args:
+        inputs: A float tensor of arbitrary shape.
+                The predictions for each example.
+        targets: A float tensor with the same shape as inputs. Stores the binary
+                 classification label for each element in inputs
+                (0 for the negative class and 1 for the positive class).
+        alpha: (optional) Weighting factor in range (0,1) to balance
+                positive vs negative examples. Default = -1 (no weighting).
+        gamma: Exponent of the modulating factor (1 - p_t) to
+               balance easy vs hard examples.
+    Returns:
+        Loss tensor
+    """
+    prob = inputs.sigmoid()
+    ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
+    p_t = prob * targets + (1 - prob) * (1 - targets)
+    loss = ce_loss * ((1 - p_t) ** gamma)
+
+    if alpha >= 0:
+        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
+        loss = alpha_t * loss
+
+    return loss
 
 class AffordanceDetection():
     def __init__(self, model, processor, bbox_eps, batchsize, model_folder, model_name, num_epochs, device, train, visualization_active=False):
@@ -135,9 +187,11 @@ class AffordanceDetection():
         #self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
         self.seg_loss = monai.losses.DiceCELoss(sigmoid=True, squared_pred=True, reduction='mean')
-        self.optimizer = Adam([{'params': self.model.module.sam.mask_decoder.parameters()}, {'params': self.model.module.text_hidden_fcs.parameters()}], lr=1e-5, weight_decay=0)
+        self.ce_loss = nn.CrossEntropyLoss(reduction='none')
+        self.optimizer = Adam([{'params': self.model.module.sam.mask_decoder_left.parameters()}, {'params':self.model.module.sam.mask_decoder_right.parameters()}, {'params': self.model.module.text_hidden_fcs.parameters()}], lr=1e-5, weight_decay=0)
         self.train_loader = None
         self.validation_loader = None
+        self.scaler = torch.cuda.amp.GradScaler()
 
     def visualize_datapoint(self, img_arr, bbox_arr, aff_arr):
         y_min = int(bbox_arr[0][0])
@@ -177,19 +231,48 @@ class AffordanceDetection():
                 os.makedirs("debug")
             prof.export_chrome_trace("debug/" + str(self.device) + "_trace.json")
             """
-            outputs = self.model(batch)
-            #print("After inference")
-            pred_masks = torch.cat([x["masks"] for x in outputs]).float()
-            #print("After pred_mask calc")
-            gt_masks = batch["ground_truth_mask"].unsqueeze(1).float() / 255
-            #print("After gt_mask calc")
-            loss = self.seg_loss(pred_masks, gt_masks.to(self.device))
-            #print("After loss calc")
+            with torch.cuda.amp.autocast():
+                if self.device == 0:
+                    start = time.time()
+                outputs = self.model(batch)
+                if self.device == 0:
+                    forward_time = time.time() - start
+                #print("After inference")
+                pred_masks_left = torch.cat([x["masks_left"] for x in outputs]).float()
+                pred_masks_right = torch.cat([x["masks_right"] for x in outputs]).float()
+                #print("After pred_mask calc")
+                gt_masks_left = batch["ground_truth_mask_left"].unsqueeze(1).float() / 255
+                gt_masks_right = batch["ground_truth_mask_right"].unsqueeze(1).float() / 255
+                #print("After gt_mask calc")
+                #loss_left = self.seg_loss(pred_masks_left, gt_masks_left.to(self.device))
+                #loss_right = self.seg_loss(pred_masks_right, gt_masks_right.to(self.device))
+                #loss_left = sigmoid_focal_loss(pred_masks_left, gt_masks_left.to(self.device)).mean((1,2,3))
+                #loss_right = sigmoid_focal_loss(pred_masks_right, gt_masks_right.to(self.device)).mean((1,2,3))
+                pred_taxonomy = torch.cat([x["taxonomy"] for x in outputs]).float()
+                #print("Pred_Taxonomy Size: ", pred_taxonomy.size())
+                gt_taxonomy = batch["taxonomies_gt"].float().to(self.device)
+                loss_taxonomy = self.ce_loss(pred_taxonomy, gt_taxonomy.to(self.device))
+                #print("Loss taxonomy: ", loss_taxonomy.size())
+                #print("Loss Left: ", loss_left.size())
+                
+                weight_decoder_left = gt_taxonomy[:, 0] #.view(-1, 1, 1, 1)
+                #print("weight decoder: ", weight_decoder_left.size())
+                weight_decoder_right = gt_taxonomy[:, 1] #.view(-1, 1, 1, 1)
+                weight_decoder_both = (gt_taxonomy[:, 2] + gt_taxonomy[:, 3]) #.view(-1, 1, 1, 1)
+                #loss = weight_decoder_left * loss_left + weight_decoder_right * loss_right + weight_decoder_both * (loss_left + loss_right) #+ loss_taxonomy
+                print("Weight decoder shape: ", weight_decoder_left.size())
+                print("Pred Masks Left SHape: ", pred_masks_left.size())
+                filtered_pred_left = (weight_decoder_left.view(-1, 1, 1, 1) + weight_decoder_both.view(-1, 1, 1, 1)) * pred_masks_left
+                filtered_pred_right = (weight_decoder_right.view(-1, 1, 1, 1) + weight_decoder_both.view(-1, 1, 1, 1)) * pred_masks_right
+                loss_left = self.seg_loss(filtered_pred_left, gt_masks_left.to(self.device))
+                loss_right = self.seg_loss(filtered_pred_right, gt_masks_right.to(self.device))
+                loss = loss_left + loss_right + loss_taxonomy
+                loss = loss.mean()
             self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
             epoch_losses.append(loss.item())
-            #print("After grad")
         return epoch_losses
 
     def validate_one_epoch(self, epoch_index):
@@ -199,10 +282,49 @@ class AffordanceDetection():
         with torch.no_grad():
             for batch in tqdm(self.validation_loader):
                 outputs = self.model(batch)
-                pred_masks = torch.cat([x["masks"] for x in outputs]).float()
-                gt_masks = batch["ground_truth_mask"].unsqueeze(1).float() / 255
-                vloss = self.seg_loss(pred_masks, gt_masks.to(self.device))
-                acc = monai.metrics.compute_iou(pred_masks, gt_masks.to(self.device)).mean()
+                pred_masks_left = torch.cat([x["masks_left"] for x in outputs]).float()
+                pred_masks_right = torch.cat([x["masks_right"] for x in outputs]).float()
+                gt_masks_left = batch["ground_truth_mask_left"].unsqueeze(1).float() / 255
+                gt_masks_right = batch["ground_truth_mask_right"].unsqueeze(1).float() / 255
+                #vloss = self.seg_loss(pred_masks, gt_masks.to(self.device))
+                #vloss_left = sigmoid_focal_loss(pred_masks_left, gt_masks_left.to(self.device)).mean((1,2,3))
+                #vloss_right = sigmoid_focal_loss(pred_masks_left, gt_masks_left.to(self.device)).mean((1,2,3))
+
+                pred_taxonomy = torch.cat([x["taxonomy"] for x in outputs]).float()
+                gt_taxonomy = batch["taxonomies_gt"].float().to(self.device)
+                vloss_taxonomy = self.ce_loss(pred_taxonomy, gt_taxonomy.to(self.device))
+
+                weight_decoder_left = gt_taxonomy[:, 0]
+                weight_decoder_right = gt_taxonomy[:, 1]
+                weight_decoder_both = gt_taxonomy[:, 2] + gt_taxonomy[:, 3]
+
+                #vloss = weight_decoder_left * vloss_left + weight_decoder_right * vloss_right + weight_decoder_both * (vloss_left + vloss_right) + vloss_taxonomy
+                #vloss = vloss.mean()
+                filtered_pred_left = (weight_decoder_left.view(-1, 1, 1, 1) + weight_decoder_both.view(-1, 1, 1, 1)) * pred_masks_left
+                filtered_pred_right = (weight_decoder_right.view(-1, 1, 1, 1) + weight_decoder_both.view(-1, 1, 1, 1)) * pred_masks_right
+                #acc = monai.metrics.compute_iou(pred_masks, gt_masks.to(self.device)).mean()
+                #print("Pred mask shape: ", pred_masks_left.shape)
+                #print("GT Mask Shape: ", gt_masks_left.shape)
+                #print("pred_masks_left min: ", torch.min(pred_masks_left))
+                #print("Pred masks left max: ", torch.max(pred_masks_left))
+                pred_masks_left = torch.sigmoid(pred_masks_left)
+                pred_masks_right = torch.sigmoid(pred_masks_right)
+                vloss_left = self.seg_loss(filtered_pred_left, gt_masks_left.to(self.device))
+                vloss_right = self.seg_loss(filtered_pred_right, gt_masks_right.to(self.device))
+                vloss = vloss_left + vloss_right + vloss_taxonomy
+                vloss = vloss.mean()
+                #pred_masks_left = (pred_masks_left > 0.5).float()
+                #pred_masks_right = (pred_masks_right > 0.5).float()
+                #print("pred_masks_left min: ", torch.min(pred_masks_left))
+                #print("Pred masks left max: ", torch.max(pred_masks_left))
+                acc_left = monai.metrics.compute_iou(pred_masks_left, gt_masks_left.to(self.device)).nan_to_num()
+                acc_right = monai.metrics.compute_iou(pred_masks_right, gt_masks_right.to(self.device)).nan_to_num()
+                acc = weight_decoder_left * acc_left + weight_decoder_right * acc_right + weight_decoder_both * (acc_left + acc_right)
+                acc = acc.mean()
+                #acc_left = compute_iou(pred_masks_left, gt_masks_left.to(self.device))
+                #acc_right = compute_iou(pred_masks_right, gt_masks_right.to(self.device))
+                #print("ACc Left: ", acc_left)
+                #print("Acc Right: ", acc_right)
                 epoch_vlosses.append(vloss.item())
                 #acc = monai.metric.compute_iou(pred_masks, ground_truth_masks.unsqueeze(1))
                 accuracies.append(acc.item())
@@ -214,14 +336,16 @@ class AffordanceDetection():
         validation_split = .2
         shuffle_dataset = True
         random_seed = 42
-        wandb.init(
-                project="2HAff",
-                config={
-                    "dataset": "EPIC_Affordance",
-                    "epochs": self.num_epochs,
-                    "batchsize": self.batchsize
-                }
-            )
+        if self.device == 0:
+            wandb.init(
+                    project="2HAff_Bimanual",
+                    config={
+                        "dataset": "EPIC_Affordance",
+                        "epochs": self.num_epochs,
+                        "batchsize": self.batchsize
+                    }
+                )
+        
         """
         dataset_size = len(dset)
         indices =list(range(dataset_size))
@@ -236,8 +360,8 @@ class AffordanceDetection():
         """
         train_set, val_set = torch.utils.data.random_split(dset, [0.9, 0.1])
         #print("Before train and val loader")
-        self.train_loader = DataLoader(train_set, batch_size=self.batchsize, shuffle=False, sampler=DistributedSampler(train_set), num_workers=2, pin_memory=False, multiprocessing_context="fork")
-        self.validation_loader = DataLoader(val_set, batch_size=self.batchsize, shuffle=False, sampler=DistributedSampler(val_set), num_workers=2, pin_memory=False, multiprocessing_context="fork")
+        self.train_loader = DataLoader(train_set, batch_size=self.batchsize, shuffle=False, sampler=DistributedSampler(train_set), num_workers=8, pin_memory=False, multiprocessing_context="fork")
+        self.validation_loader = DataLoader(val_set, batch_size=self.batchsize, shuffle=False, sampler=DistributedSampler(val_set), num_workers=8, pin_memory=False, multiprocessing_context="fork")
         #print("After train val loader")
         self.model.to(self.device)
         #print("AFter model to device")
@@ -252,16 +376,17 @@ class AffordanceDetection():
             #print(f'Mean loss training: {mean(epoch_losses)}')
             #print(f'Mean loss validation: {mean(epoch_vlosses)}')
             #print(f'Mean IoU: {mean(accuracies)}')
-            wandb.log({'train_loss': mean(epoch_losses)})
-            wandb.log({'loss': mean(epoch_vlosses)})
-            wandb.log({'acc (IoU)': mean(accuracies)})
-            wandb.log({'acc': mean(accuracies)})
-            """
-            if epoch % 10 == 0 and self.device == 0:
-                torch.save(self.model.state_dict(), os.path.join(self.model_folder, str(epoch) + '_' + self.model_name))
-            """
+            if self.device == 0:
+                wandb.log({'train_loss': mean(epoch_losses)})
+                wandb.log({'loss': mean(epoch_vlosses)})
+                wandb.log({'acc (IoU)': mean(accuracies)})
+            #wandb.log({'acc': mean(accuracies)})
+            if self.device == 0:
+                if epoch % 10 == 0:
+                    torch.save(self.model.state_dict(), os.path.join(self.model_folder, str(epoch) + '_' + self.model_name))
         torch.save(self.model.module.state_dict(), os.path.join(self.model_folder, self.model_name))
-        wandb.finish()
+        if self.device == 0:
+            wandb.finish()
 
     def test_on_single_image(self, img, prompt):
         self.model.to(self.device)
@@ -342,7 +467,7 @@ def main(rank, world_size, data_folder, bbox_eps, checkpoint_file, visualization
     # Download pretrained model
     if not testing and not test_single:
         ddp_setup(rank, world_size)
-        sam_model = build_sam_vit_b(checkpoint=checkpoint_file)
+        sam_model = build_sam_vit_b(checkpoint="pretrained/sam_vit_b_01ec64.pth", is_sam_pretrained=True)
         processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
         config = {
         "in_dim": 512,
@@ -353,7 +478,7 @@ def main(rank, world_size, data_folder, bbox_eps, checkpoint_file, visualization
         clip_sam = DDP(clip_sam, device_ids=[rank], find_unused_parameters=True)
     else:
         sam_model = build_sam_vit_b("pretrained/sam_vit_b_01ec64.pth")
-        processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
+        processor = SamProcessor.from_pretrained("facebook/sam-vit-base", is_sam_pretrained=True)
         config = {
         "in_dim": 512,
         "out_dim": 256
@@ -434,11 +559,13 @@ if __name__ == "__main__":
         test_single = vals["test_single"]
         image_name = vals["image_name"]
         world_size = torch.cuda.device_count()
-        affs, bbox, images, text_prompts = prepare_data(data_folder, model_folder, bbox_eps)
+        affs_left, affs_right, bbox, images, text_prompts, taxonomies = prepare_data(data_folder, model_folder, bbox_eps)
         images = torch.tensor(images)
-        affs = torch.cat(affs)
+        affs_left = torch.tensor(affs_left)
+        affs_right = torch.tensor(affs_right)
+        taxonomies = torch.tensor(taxonomies)
         processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
-        dset = AffDataset(img=images, aff_mask=affs, txt_prompt=text_prompts, processor=processor)
+        dset = AffDataset(img=images, aff_mask_left=affs_left, aff_mask_right=affs_right, txt_prompt=text_prompts, taxonomies=taxonomies, processor=processor)
         mp.spawn(main, args=(world_size, data_folder, bbox_eps, checkpoint_file, visualization_active, batchsize, model_folder, model_name, num_epochs, out_images, testing, test_single, img_path, prompt, image_name, dset, ), nprocs=world_size)
         #main(data_folder, bbox_eps, checkpoint_file, visualization_active, batchsize, model_folder, model_name, num_epochs, out_images, testing, test_single, img_path, prompt, image_name)
     else:

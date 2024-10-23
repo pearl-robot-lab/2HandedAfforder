@@ -16,8 +16,8 @@ from torch.optim import Adam
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
-from segment_anything import build_sam_vit_b, SamPredictor
-from segment_anything.modeling import Sam
+from segment_anything_copy import build_sam_vit_b, SamPredictor
+from segment_anything_copy.modeling import Sam
 from transformers import SamModel, SamProcessor
 from typing import Optional, Tuple
 
@@ -33,7 +33,7 @@ class TwoHandedAfforder(nn.Module):
             nn.Linear(in_dim, out_dim),
             nn.Dropout(0.0),
         ]
-        #self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
         self.device = device
         self.clip_model, _ = clip.load("ViT-B/32", device=self.device)
         self.text_hidden_fcs = nn.Sequential(*text_fc)
@@ -65,16 +65,24 @@ class TwoHandedAfforder(nn.Module):
         return batch_list
         
     def forward(self, batched_input):
+
+        # Convert bytes to string
         if not isinstance(batched_input["txt_prompt"][0], str):
             decoded_text = [x.decode("utf-8") for x in batched_input["txt_prompt"]]
         else:
             decoded_text = batched_input["txt_prompt"]
+
+        # Process text prompt with clip
         text = clip.tokenize(decoded_text).to(self.device)
         with torch.no_grad():
             text_features = self.clip_model.encode_text(text).type(torch.float32)
+        
+        # Create text embeddings
         text_embeds = self.text_hidden_fcs(text_features)
         batched_input["text_embeds"] = text_embeds
+
+        # Predict affordances
         batched_input = self.convert_dict_to_list(batched_input)
-        outputs = self.sam(batched_input, multimask_output=False)
+        outputs = self.sam(batched_input, multimask_output=False) # Output from to decoders
 
         return outputs
