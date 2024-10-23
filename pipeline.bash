@@ -57,7 +57,7 @@ cd ../MI-GAN
 python -m scripts.demo --model-name migan-512 --model-path ./models/migan_512_places2.pt --images-dir ../EPIC_DATA/xmem_masks/$2/object/left --masks-dir ../EPIC_DATA/xmem_masks_batched/$2/hand/left --output-dir ../EPIC_DATA/mask_completion/$2/left --device cuda --invert-mask --img-extension .png
 python -m scripts.demo --model-name migan-512 --model-path ./models/migan_512_places2.pt --images-dir ../EPIC_DATA/xmem_masks/$2/object/right --masks-dir ../EPIC_DATA/xmem_masks_batched/$2/hand/right --output-dir ../EPIC_DATA/mask_completion/$2/right --device cuda --invert-mask --img-extension .png
 python -m scripts.demo --model-name migan-512 --model-path ./models/migan_512_places2.pt --images-dir ../EPIC_DATA/frames/$1/$2 --masks-dir ../EPIC_DATA/xmem_masks_batched/$2/hand/both --output-dir ../EPIC_DATA/inpainted_hands_migan/$2 --device cuda --invert-mask
-rm -r ../EPIC_DATA/xmem_masks_batched/$2
+# rm -r ../EPIC_DATA/xmem_masks_batched/$2
 
 # Perform post processing
 cd ../scripts
@@ -85,6 +85,26 @@ python helper.py --apply_padding_single_folder_dir ../EPIC_DATA/mask_differences
 # Draw affordance mask
 #python helper.py --draw_mask_affordance_images ../EPIC_DATA/hand_inpainting/$2 --draw_mask_affordance_masks_left ../EPIC_DATA/cropped_masks/$2/left --draw_mask_affordance_masks_right ../EPIC_DATA/cropped_masks/$2/right --draw_mask_affordance_out ../EPIC_DATA/affordance_masks/$2/both
 python helper.py --draw_mask_affordance_images ../EPIC_DATA/hand_inpainting/$2 --draw_mask_affordance_masks_left ../EPIC_DATA/padded_masks/$2/left --draw_mask_affordance_masks_right ../EPIC_DATA/padded_masks/$2/right --draw_mask_affordance_out ../EPIC_DATA/affordance_masks/$2/both
+chmod -R g+rwx ../EPIC_DATA/affordance_masks/$2
+chmod -R g+rwx ../EPIC_DATA/frames/$1/$2
+chmod -R g+rwx ../EPIC_DATA/hand_inpainting/$2
+chmod -R g+rwx ../EPIC_DATA/inpainted_hands_migan/$2
+chmod -R g+rwx ../EPIC_DATA/mask_completion/$2
+chmod -R g+rwx ../EPIC_DATA/mask_differences/$2
+chmod -R g+rwx ../EPIC_DATA/padded_masks/$2
+#chmod -R g+rwx ../EPIC_DATA/padded_masks_unmodified/$2
+chmod -R g+rwx ../EPIC_DATA/xmem_masks/$2
+chmod -R g+rwx ../EPIC_DATA/xmem_masks_batched/$2
+chmod -R g+rwx ../EPIC_DATA/xmem_masks_padded/$2
+#chmod -R g+rwx ../EPIC_DATA/xmem_masks_restructed/$2
+
+
+
+
+
+
+
+
 
 
 

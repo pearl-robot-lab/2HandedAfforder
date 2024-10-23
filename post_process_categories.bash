@@ -24,7 +24,7 @@ rm -r ../EPIC_DATA/cropped_masks_unmodified/$1
 #python create_dataset_categories.py --dir ../EPIC_DATA/dataset_migan/$1 --out ../EPIC_DATA/hdf5_bowl_migan_categories --name $1 --categories bowl spoon milk milk_carton cereal_box knife plate
 
 # Agent-Inpainting
-python create_dataset_categories.py --dir ../EPIC_DATA/dataset/$1 --out ../EPIC_DATA/hdf5_test --name $1 --categories bowl spoon milk milk_carton cereal_box knife plate
-
+#python create_dataset_categories.py --dir ../EPIC_DATA/dataset/$1 --out ../EPIC_DATA/hdf5_test --name $1 --categories bowl spoon milk milk_carton cereal_box knife plate
+python create_dataset_categories.py --dir ../EPIC_DATA/dataset/$1 --out ../EPIC_DATA/hdf5_test --name $1 --categories all
 #python create_dataset_categories.py --dir ../EPIC_DATA/dataset/$1 --out ../EPIC_DATA/hdf5_bowl_test --name $1 --categories bowl
 
