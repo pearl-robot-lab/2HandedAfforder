@@ -33,4 +33,4 @@ bind_mounts:
   - container_path: /shared
     host_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared
   - container_path: /run/determined/workdir
-    host_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/home/sj93qicy
+    host_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/home/sj93qicy # mh65gymu
