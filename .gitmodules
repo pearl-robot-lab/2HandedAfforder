@@ -10,3 +10,7 @@
 [submodule "XMem_Batch"]
 	path = XMem_Batch
 	url = https://gitlab.pearl.informatik.tu-darmstadt.de/research/perception/XMem_Batch.git
+[submodule "LISA_modified"]
+        path = LISA_modified
+        url = https://gitlab.pearl.informatik.tu-darmstadt.de/research/perception/LISA_modified.git
+
