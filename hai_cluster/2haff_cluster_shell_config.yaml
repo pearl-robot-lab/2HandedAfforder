@@ -28,6 +28,8 @@ bind_mounts:
     read_only: false
   - container_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki
     host_path: /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki
+  - container_path: /pfss/mlde/workspaces/mlde_wsp_Shared_Datasets
+    host_path: /pfss/mlde/workspaces/mlde_wsp_Shared_Datasets
   - container_path: /pfss/mlde/users/sj93qicy
     host_path: /pfss/mlde/users/sj93qicy
   - container_path: /shared
