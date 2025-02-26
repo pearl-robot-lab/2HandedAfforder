@@ -35,7 +35,7 @@ def rename_files(folder_path):
 def rename_files_video(video_name):
     folder_path = os.path.join("../EPIC_DATA/frames", video_name.split("_")[0], video_name)
     for filename in os.listdir(folder_path):
-        if filename[0] != "P" and filename[0] != "f":
+        if filename[0] != "P" and filename[0] != "f" and len(filename) < 12:
             print("files already configured")
             return
         # Split filename by "_"
@@ -114,10 +114,27 @@ def calculate_mask_difference(mask_prev, mask_post, out):
         if mask in mask_files_post:
             mask_1 = cv2.imread(os.path.join(mask_prev, mask), cv2.IMREAD_GRAYSCALE)
             mask_2 = cv2.imread(os.path.join(mask_post, mask), cv2.IMREAD_GRAYSCALE)
+            if mask_2.shape[0] - mask_2.shape[1] == 0 or mask_1.shape[0] - mask_1.shape[1] == 0:
+                mask_1 = pad_image(mask_1)   
+                mask_2 = pad_image(mask_2)
+                if mask_1.shape != mask_2.shape:
+                    new_shape = mask_1.shape if mask_1.shape[0] else mask_2.shape
+                    mask_1 = cv2.resize(mask_1, new_shape)
+                    mask_2 = cv2.resize(mask_2, new_shape)
             result = mask_2 - mask_1
             result[np.where(result > 30)] = 255
             result[np.where(result <= 30)] = 0
             Image.fromarray(result).save(os.path.join(out, mask))
+
+def pad_image(image):
+    h, w = image.shape[:2]
+    if h > w:
+        padding = (h - w, 0)
+        padded_image = cv2.copyMakeBorder(image, 0, 0, padding[0], 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+    else:
+        padding = (w - h, 0)
+        padded_image = cv2.copyMakeBorder(image, padding[0], 0, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+    return padded_image
 
 def regenerate_mask(folder_path, threshold):
     files = os.listdir(folder_path)
