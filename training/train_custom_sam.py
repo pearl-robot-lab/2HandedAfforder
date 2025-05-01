@@ -15,6 +15,7 @@ from torch.optim import Adam
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 from tqdm import tqdm
+from segment_anything import build_sam_vit_b, SamPredictor
 from transformers import SamModel, SamProcessor
 
 
@@ -211,6 +212,7 @@ class AffordanceDetection():
     validation_split = .2
     shuffle_dataset = True
     random_seed = 42
+    """
     wandb.init(
       project="test",
       config={
@@ -219,6 +221,7 @@ class AffordanceDetection():
         "batchsize": self.batchsize
       }
     )
+    """
     dataset_size = len(dset)
     indices =list(range(dataset_size))
     split = int(np.floor(validation_split * dataset_size))
@@ -246,10 +249,10 @@ class AffordanceDetection():
       print(f'Mean loss training: {mean(epoch_losses)}')
       print(f'Mean loss validation: {mean(epoch_vlosses)}')
       #wandb.log({'train_loss': mean(epoch_losses)})
-      wandb.log({'loss': mean(epoch_vlosses)})
-      wandb.log({'acc': mean(accuracies)})
+      #wandb.log({'loss': mean(epoch_vlosses)})
+      #wandb.log({'acc': mean(accuracies)})
     torch.save(self.model.state_dict(), os.path.join(self.model_folder, self.model_name))
-    wandb.finish()
+    #wandb.finish()
 
   def test_on_single_image(self, img, prompt):
     self.model.to(self.device)
@@ -321,12 +324,18 @@ def get_bbox(mask, bbox_eps):
 def main(data_folder, bbox_eps, checkpoint_file, visualization_active, batchsize, model_folder, model_name, num_epochs, out_images, testing, test_single, img_path, mask_path):
 
   # Download pretrained model
+  """
   model = SamModel.from_pretrained("facebook/sam-vit-base")
   if checkpoint_file != "":
     checkpoint = torch.load(checkpoint_file, weights_only=True)
     model.load_state_dict(checkpoint)
 
   processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
+  """
+
+  model = build_sam_vit_b(checkpoint=checkpoint_file)
+  processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
+
 
   # Instantiate affordance detection object
   haff_model = AffordanceDetection(model, processor, bbox_eps, batchsize, model_folder, model_name, num_epochs, visualization_active)

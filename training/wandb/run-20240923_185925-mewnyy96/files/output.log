@@ -1,0 +1,17 @@
+  0%|                                                                        | 0/11 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "train_custom_sam.py", line 407, in <module>
+    main(data_folder, bbox_eps, checkpoint_file, visualization_active, batchsize, model_folder, model_name, num_epochs, out_images, testing, test_single, img_path, mask_path)
+  File "train_custom_sam.py", line 352, in main
+    haff_model.train(images, affs, bboxes)
+  File "train_custom_sam.py", line 243, in train
+    epoch_losses = self.train_one_epoch(epoch)
+  File "train_custom_sam.py", line 169, in train_one_epoch
+    outputs = self.model(pixel_values=batch["pixel_values"].to(self.device),
+  File "/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/conda/training_sam/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/conda/training_sam/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/conda/training_sam/lib/python3.8/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+TypeError: forward() got an unexpected keyword argument 'pixel_values'

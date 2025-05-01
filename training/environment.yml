@@ -1,17 +1,15 @@
-name: postprocess
+prefix: train_haff
 channels:
   - defaults
 dependencies:
-  - ca-certificates=2024.7.2=haa95532_0
-  - libffi=3.4.4=hd77b12b_1
-  - openssl=3.0.14=h827c3e9_0
-  - pip=24.2=py38haa95532_0
-  - python=3.8.19=h1aa4202_0
-  - setuptools=72.1.0=py38haa95532_0
-  - sqlite=3.45.3=h2bbff1b_0
-  - vc=14.40=h2eaa2aa_0
-  - vs2015_runtime=14.40.33807=h98bb1dd_0
-  - wheel=0.43.0=py38haa95532_0
+  - ca-certificates=2024.7.2
+  - libffi=3.4.4
+  - openssl=3.0.14
+  - pip=24.2
+  - python=3.8.19
+  - setuptools=72.1.0
+  - sqlite=3.45.3
+  - wheel=0.43.0
   - pip:
     - aiohappyeyeballs==2.4.0
     - aiohttp==3.10.5
@@ -60,11 +58,9 @@ dependencies:
     - tokenizers==0.19.1
     - torch==2.4.0
     - tqdm==4.66.5
-    - transformers==4.45.0.dev0
     - typing-extensions==4.12.2
     - tzdata==2024.1
     - urllib3==2.2.2
     - xxhash==3.5.0
     - yarl==1.9.6
     - zipp==3.20.1
-prefix: D:\anaconda\envs\postprocess

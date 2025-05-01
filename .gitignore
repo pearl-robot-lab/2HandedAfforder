@@ -1,3 +1,5 @@
+/Archived_Set
+/Ego4D
 /EPIC_DATA
 /EPIC_DATA_val
 test_model_loading.py
@@ -9,4 +11,18 @@ mi-gan.bash
 /.condatmp
 /model/wandb
 /model/real_life_examples
-
+/LISA_modified/runs
+/LISA_modified/imgs
+/LISA_modified/vis_output
+/LISA_modified/wandb
+/LISA_modified/weights
+/temp_helper_scripts
+/temp_weights
+/LISA
+/BENCHMARK
+/model/checkpoint_bimanual
+/model/chrome_trace
+/model/ckpts
+/model/examples_outputs
+/model/pretrained
+/model/tmp_logging
