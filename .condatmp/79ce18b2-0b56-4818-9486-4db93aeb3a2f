@@ -1,0 +1,14 @@
+prefix=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder
+exec_prefix=${prefix}
+libdir=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/lib
+includedir=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/include
+
+Name: libswresample
+Description: FFmpeg audio resampling library
+Version: 3.7.100
+Requires: 
+Requires.private: libavutil >= 56.51.100
+Conflicts:
+Libs: -L${libdir}  -lswresample 
+Libs.private: -lm
+Cflags: -I${includedir}

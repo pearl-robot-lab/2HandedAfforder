@@ -1,0 +1,14 @@
+prefix=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder
+exec_prefix=${prefix}
+libdir=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/lib
+includedir=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/include
+
+Name: libavcodec
+Description: FFmpeg codec library
+Version: 58.91.100
+Requires: 
+Requires.private: libswresample >= 3.7.100, libavutil >= 56.51.100
+Conflicts:
+Libs: -L${libdir}  -lavcodec 
+Libs.private: -pthread -liconv -lm -L/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/lib -lz -lmp3lame -lm -L/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/lib -lopenh264
+Cflags: -I${includedir}

@@ -1,0 +1,13 @@
+prefix=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder
+exec_prefix=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder
+libdir=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/lib
+sharedlibdir=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/lib
+includedir=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.2.13
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}

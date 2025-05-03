@@ -1,0 +1,14 @@
+prefix=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder
+exec_prefix=${prefix}
+libdir=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/lib
+includedir=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/include
+
+Name: libavdevice
+Description: FFmpeg device handling library
+Version: 58.10.100
+Requires: 
+Requires.private: libavfilter >= 7.85.100, libswscale >= 5.7.100, libavformat >= 58.45.100, libavcodec >= 58.91.100, libswresample >= 3.7.100, libavresample >= 4.0.0, libavutil >= 56.51.100
+Conflicts:
+Libs: -L${libdir}  -lavdevice 
+Libs.private: -lm
+Cflags: -I${includedir}

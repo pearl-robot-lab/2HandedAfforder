@@ -1,0 +1,11 @@
+prefix=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder
+exec_prefix=${prefix}
+includedir=${prefix}/include
+libdir=${exec_prefix}/lib
+
+Name: libidn2
+Description: Library implementing IDNA2008 and TR46
+Version: 2.3.4
+Cflags: -I${includedir}
+Libs: -L${libdir} -lidn2
+Libs.private:  -L/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/lib -lunistring -R/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/lib

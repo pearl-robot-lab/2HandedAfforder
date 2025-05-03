@@ -1,0 +1,5 @@
+[mkl]
+mkl_libs = mkl_rt
+lapack_libs = mkl_rt
+library_dirs = /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/lib
+include_dirs = /pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder/include

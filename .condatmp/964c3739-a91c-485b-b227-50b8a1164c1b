@@ -1,0 +1,11 @@
+prefix=/pfss/mlde/workspaces/mlde_wsp_PI_Chalvatzaki/shared/2handedafforder
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include/webp
+
+Name: libsharpyuv
+Description: Library for sharp RGB to YUV conversion
+Version: 1.3.2
+Cflags: -I${includedir}
+Libs: -L${libdir} -lsharpyuv
+Libs.private: -lm -pthread 
