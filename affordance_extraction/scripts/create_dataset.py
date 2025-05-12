@@ -6,7 +6,7 @@ import numpy as np
 import os
 
 from argparse import ArgumentParser
-from compress_masks_to_json import convert_masks_to_json
+from utils.compress_masks_to_json import convert_masks_to_json
 
 def extract_verb_class_dict(verb_class_file):
     classes = []
@@ -233,7 +233,7 @@ def build_dataset(dir, out, name, limit, categories, verb_class_file):
     }
 
 
-    
+    import pdb; pdb.set_trace()
     convert_masks_to_json(np.array(aff_left, dtype=np.uint8), np.array(aff_right, dtype=np.uint8), np.array(obj_mask_left, dtype=np.uint8), np.array(obj_mask_right, dtype=np.uint8), os.path.join(out, 'jsons', name + ".json"))
     hdf5 = h5py.File(os.path.join(out, 'h5', name + ".h5"), 'w')
     grp = hdf5.create_group('data')

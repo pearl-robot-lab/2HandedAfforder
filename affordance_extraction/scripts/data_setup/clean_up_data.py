@@ -40,28 +40,11 @@ def process_images_in_folder(folder_path):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    #parser.add_argument('dataset', default=None)
     parser.add_argument('video', default=None)
     args = parser.parse_args()
     vals = vars(args)
-    """
-    if vals['dataset']:
-        folders = os.listdir(vals['dataset'])
-        for folder in folders:
-            folder_path = os.path.join(vals['dataset'], folder)
-            sequences = os.listdir(folder_path)
-            for sequence in sequences:
-                sequence_path = os.path.join(folder_path, sequence)
-                process_images_in_folder(sequence_path)
-    """
     if vals['video']:
         sequences = os.listdir(vals['video'])
         for sequence in sequences:
             sequence_path = os.path.join(vals['video'], sequence)
             process_images_in_folder(sequence_path)
-
-        
-
-
-# Usage:
-# process_images_in_folder("path_to_your_folder")

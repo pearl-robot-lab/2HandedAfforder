@@ -67,7 +67,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--video-id', default=None)  
     parser.add_argument('--out', default=None)
-    parser.add_argument('--basepath', default="../../dataset/EPIC_DATA")
+    parser.add_argument('--basepath', default="../../../dataset/EPIC_DATA")
     parser.add_argument('--bim-name', default="bimanual_annotations_json")
     parser.add_argument('--aff-name', default="cropped_masks")
     parser.add_argument('--inp-name', default="hand_inpainting")

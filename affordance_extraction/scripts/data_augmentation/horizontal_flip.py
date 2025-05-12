@@ -4,14 +4,7 @@ from PIL import Image
 import shutil
 from argparse import ArgumentParser
 
-def flip_image(image_path):
-    # Open and flip the image horizontally
-    with Image.open(image_path) as img:
-        flipped_img = img.transpose(Image.FLIP_LEFT_RIGHT)
-    return flipped_img
-
 def create_flipped_copy(main_folder_path):
-    new_folders = []
     print(os.path.dirname(main_folder_path))
     new_folder_name = 'flipped_' + os.path.basename(main_folder_path)
     print(f"New Folder Name: {new_folder_name}")

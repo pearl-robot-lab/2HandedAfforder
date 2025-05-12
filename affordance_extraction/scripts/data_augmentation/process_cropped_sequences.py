@@ -50,10 +50,12 @@ def process_unimanual(sequence_path, original_size):
     if os.path.exists(obj_right_path) and os.path.exists(aff_right_path):
         obj_img = Image.open(obj_right_path)
         aff_img = Image.open(aff_right_path)
+        aff_img = aff_img.resize(original_size)
         side = 'right'
     elif os.path.exists(obj_left_path) and os.path.exists(aff_left_path):
         obj_img = Image.open(obj_left_path)
         aff_img = Image.open(aff_left_path)
+        aff_img = aff_img.resize(original_size)
         side = 'left'
     
     if obj_img and aff_img:
@@ -123,12 +125,16 @@ def process_bimanual(sequence_path, original_size):
         # Load inpainted frame
         inpainted_img = Image.open(inpainted_frame_path)
         inpainted_img = inpainted_img.resize(original_size)
+        aff_left_img = Image.open(aff_left_path)
+        aff_left_img = aff_left_img.resize(original_size)
+        aff_right_img = Image.open(aff_right_path)
+        aff_right_img = aff_right_img.resize(original_size)
 
         # Crop, pad and resize all images
         obj_left_cropped = crop_and_pad(obj_left_img, bbox, offset, original_size)
         obj_right_cropped = crop_and_pad(obj_right_img, bbox, offset, original_size)
-        aff_left_cropped = crop_and_pad(Image.open(aff_left_path), bbox, offset, original_size)
-        aff_right_cropped = crop_and_pad(Image.open(aff_right_path), bbox, offset, original_size)
+        aff_left_cropped = crop_and_pad(aff_left_img, bbox, offset, original_size)
+        aff_right_cropped = crop_and_pad(aff_right_img, bbox, offset, original_size)
         inpainted_cropped = crop_and_pad(inpainted_img, bbox, offset, original_size)
 
         # Save the images
@@ -207,6 +213,36 @@ def main():
             original_size = mask.size
             print("Cropping: ", sequence_path)
             process_bimanual(sequence_path, original_size)
+    
+    for sequence_path, _ in unimanual_sequences:
+        obj_left_path = os.path.join(sequence_path, 'obj_left.png')
+        obj_right_path = os.path.join(sequence_path, 'obj_right.png')
+        aff_path = ''
+        if os.path.exists(obj_left_path):
+            mask = Image.open(obj_left_path)
+            aff_path = os.path.join(sequence_path, 'aff_left.png')
+            aff = Image.open(aff_path)
+        elif os.path.exists(obj_right_path):
+            mask = Image.open(obj_right_path)
+            aff_path = os.path.join(sequence_path, 'aff_right.png')
+            aff = Image.open(aff_path) 
+        original_size = mask.size
+        if aff_path != '':
+            aff = aff.resize(original_size)
+            aff.save(aff_path)
+    
+    for sequence_path, _ in bimanual_sequences:
+        obj_left_path = os.path.join(sequence_path, 'obj_left.png')
+        obj_left = Image.open(obj_left_path)
+        original_size = obj_left.size
+        aff_left_path = os.path.join(sequence_path, 'aff_left.png')
+        aff_right_path = os.path.join(sequence_path, 'aff_right.png')
+        aff_left = Image.open(aff_left_path)
+        aff_right = Image.open(aff_right_path)
+        aff_left = aff_left.resize(original_size)
+        aff_right = aff_right.resize(original_size)
+        aff_left.save(aff_left_path)
+        aff_right.save(aff_right_path)
 
 if __name__ == "__main__":
     main()
