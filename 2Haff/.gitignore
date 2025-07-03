@@ -1,0 +1,11 @@
+**/__pycache__
+runs/
+.vscode/
+sam_ckpt/
+vis_output/
+imgs/
+transformers/
+wandb/
+LISA-13B-Aff
+weights
+

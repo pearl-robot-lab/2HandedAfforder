@@ -1,4 +1,4 @@
-/dataset
+/2HANDS/dataset
 affordance_extraction/download_video.bash
 *.pth
 /models/model/wandb
@@ -17,3 +17,5 @@ affordance_extraction/download_video.bash
 /models/model/pretrained
 /models/model/tmp_logging
 /hai_cluster
+/outdated_models
+/ActAffordance

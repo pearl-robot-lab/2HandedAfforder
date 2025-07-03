@@ -1,0 +1,410 @@
+import glob
+import json
+import os
+import random
+import re
+
+import cv2
+import h5py
+import numpy as np
+import torch
+import torch.nn.functional as F
+from PIL import Image
+from pycocotools.coco import COCO
+from transformers import CLIPImageProcessor
+
+from model.llava import conversation as conversation_lib
+from model.segment_anything.utils.transforms import ResizeLongestSide
+
+#from .utils import ANSWER_LIST, SHORT_QUESTION_LIST
+
+DEFAULT_IMAGE_TOKEN = "<image>"
+
+SHORT_QUESTION_LIST = [
+    DEFAULT_IMAGE_TOKEN + "\n" + "Can you show me where I have to interact with the objects to perform the following task: {class_name}?",
+    DEFAULT_IMAGE_TOKEN + "\n" + "Please segment the region to perform the action '{class_name}' in this image.",
+    DEFAULT_IMAGE_TOKEN
+    + "\n"
+    + "How can I perform the action '{class_name}' in this image? Please respond with segmentation mask.",
+    DEFAULT_IMAGE_TOKEN
+    + "\n"
+    + "How can I perform the action '{class_name}' in this image? Please output segmentation mask.",
+]
+
+ANSWER_LIST = [
+    "It is [SEG].",
+    "Sure, [SEG].",
+    "Sure, it is [SEG].",
+    "Sure, the segmentation result is [SEG].",
+    "[SEG].",
+]
+
+class AffDataset(torch.utils.data.Dataset):
+    pixel_mean = torch.Tensor([123.675, 116.28, 103.53]).view(-1, 1, 1)
+    pixel_std = torch.Tensor([58.395, 57.12, 57.375]).view(-1, 1, 1)
+    img_size = 1024
+    ignore_label = 255
+
+    def __init__(
+        self,
+        base_image_dir,
+        tokenizer,
+        vision_tower,
+        samples_per_epoch=500 * 8 * 2 * 10,
+        precision: str = "fp32",
+        image_size: int = 224,
+        #num_classes_per_sample: int = 3,
+        #exclude_val=False,
+        #sem_seg_data="ade20k||cocostuff||partimagenet||pascal_part||paco_lvis||mapillary",
+    ):
+        #self.exclude_val = exclude_val
+        self.samples_per_epoch = samples_per_epoch
+        #self.num_classes_per_sample = num_classes_per_sample
+
+        self.base_image_dir = base_image_dir
+        self.image_size = image_size
+        self.tokenizer = tokenizer
+        self.precision = precision
+        self.transform = ResizeLongestSide(image_size)
+        self.clip_image_processor = CLIPImageProcessor.from_pretrained(vision_tower)
+
+        self.short_question_list = SHORT_QUESTION_LIST
+        self.answer_list = ANSWER_LIST
+
+        self.data2list = {}
+        self.data2classes = {}
+
+        #self.sem_seg_datas = sem_seg_data.split("||")
+        self.image_dir = os.path.join(self.base_image_dir, "h5")
+        self.json_dir = os.path.join(self.base_image_dir, "jsons")
+        def extract_number(filename):
+            # Use regular expression to extract the first number from the filename (before the first underscore or before the extension)
+            match = re.search(r'(\d+)', filename)
+            return int(match.group(1)) if match else float('inf')
+        self.h5_names = os.listdir(self.image_dir)
+        self.json_names = sorted(os.listdir(self.json_dir), key=extract_number)
+        self.size = sum(h5py.File(os.path.join(self.image_dir, f), 'r')['data']['inpainted'].shape[0] for f in self.h5_names if f.endswith('.h5'))
+
+        self.original_size = None
+        self.aff_masks_left = []
+        self.aff_masks_right = []
+        for filename in self.json_names:
+            json_path = os.path.join(self.json_dir, filename)
+            range_part = filename.split('_')[0]
+            start_idx, end_idx = map(int, range_part.split('-'))
+            self.index_ranges.append([start_idx, end_idx])
+            with open(json_path, 'r') as f:           
+                json_data = json.load(f)
+                if self.original_size is None:
+                    self.original_size = json_data["0"]["original_size"]
+                for key in json_data:
+                    entry = json_data[key]
+                    self.aff_masks_left.append(entry.get("aff_left", []))
+                    self.aff_masks_right.append(entry.get("aff_right", []))
+
+    def __len__(self):
+        return self.samples_per_epoch
+
+    def preprocess(self, x: torch.Tensor) -> torch.Tensor:
+        """Normalize pixel values and pad to a square input."""
+        # Normalize colors
+        x = (x - self.pixel_mean) / self.pixel_std
+
+        # Pad
+        h, w = x.shape[-2:]
+        padh = self.img_size - h
+        padw = self.img_size - w
+        x = F.pad(x, (0, padw, 0, padh))
+        return x
+
+    def __getitem__(self, idx):
+        
+        idx = random.randint(0, self.size - 1)
+        text_prompt, image, taxonomy = self.extract_index_from_h5(self.folder_path_h5, self.h5_names, idx)
+        sampled_classes = [text_prompt]
+        mask_data = {}
+        mask_data['aff_left'] = self.aff_masks_left[idx]
+        mask_data['aff_right'] = self.aff_masks_right[idx]
+        masks = {}
+        masks['aff_left'] = self.recreate_mask_from_contours(mask_data['aff_left'], shape=self.original_size)
+        masks['aff_right'] = self.recreate_mask_from_contours(mask_data['aff_right'], shape=self.original_size)
+        label_left = masks['aff_left'][masks['aff_left'] == 0]
+        label_right = masks['aff_right'][masks['aff_left'] == 0]
+        label_left[label_left == 0] = 255
+        label_right[label_right == 0] = 255
+        label_left -= 1
+        label_right -= 1
+        label_left[label_left == 254] = 255
+        label_right[label_right == 254] = 255
+        label = {
+            'left': torch.from_numpy(label_left).long(),
+            'right': torch.from_numpy(label_right).long()
+        }
+        masks['aff_left'] = torch.from_numpy(masks['aff_left']).unsqueeze(0)
+        masks['aff_right'] = torch.from_numpy(masks['aff_right']).unsqueeze(0)
+
+        image_clip = self.clip_image_processor.preprocess(image, return_tensors="pt")["pixel_values"][0]
+        image = self.transform.apply_image(image)
+        resize = image.shape[:2]
+
+        questions = []
+        answers = []
+        for sampled_cls in sampled_classes:
+            text = sampled_cls
+            question_template = random.choice(self.short_question_list)
+            questions.append(question_template.format(class_name=text.lower()))
+            answers.append(random.choice(self.answer_list))
+
+        conversations = []
+        conv = conversation_lib.default_conversation.copy()
+
+        i = 0
+        while i < len(questions):
+            conv.messages = []
+            conv.append_message(conv.roles[0], questions[i])
+            conv.append_message(conv.roles[1], answers[i])
+            conversations.append(conv.get_prompt())
+            i += 1
+
+        image = self.preprocess(torch.from_numpy(image).permute(2, 0, 1).contiguous())
+
+        return (
+            None,
+            image,
+            image_clip,
+            conversations,
+            masks,
+            label,
+            resize,
+            questions,
+            sampled_classes,
+            taxonomy
+        )
+    
+    def get_file_for_index(self, folder_path, folder_list, index):
+        # List all h5 files and find which file contains the target index based on the filename
+        h5_files = [f for f in folder_list if f.endswith('.h5')]
+        
+        # Regex to match the index range in the filename (e.g., "0-9_filename.h5")
+        pattern = r"(\d+)-(\d+)_"
+        
+        for filename in h5_files:
+            match = re.match(pattern, filename)
+            if match:
+                start_idx, end_idx = map(int, match.groups())
+                if start_idx <= index <= end_idx:
+                    return os.path.join(folder_path, filename), start_idx
+        
+        raise ValueError(f"Index {index} not found in any file in {folder_path}.")
+
+    def extract_index_from_h5(self, folder_path, folder_list, index):
+        # Get the file and the start index of its range
+        file_path, start_idx = self.get_file_for_index(folder_path, folder_list, index)
+        
+        # Open the file and extract the specific entry at the adjusted index
+        with h5py.File(file_path, 'r') as h5_file:
+            data_narration = h5_file['data']['narration']
+            data_inpainted = h5_file['data']['inpainted']
+            data_taxonomy = h5_file['data']['taxonomy']
+            adjusted_index = index - start_idx  # Calculate position within the file
+            narration = data_narration[adjusted_index]  # Extract the specific entry
+            inpainted = data_inpainted[adjusted_index]  # Extract the specific entry
+            taxonomy = data_taxonomy[adjusted_index]  # Extract the specific entry
+            
+        #return obj_mask_left, obj_mask_right, aff_left, aff_right, narration, inpainted, taxonomy
+        return narration, inpainted, taxonomy
+    
+    def recreate_mask_from_contours(self, contours, shape):
+        """Reconstruct a binary mask from OpenCV contours."""
+        mask = np.zeros(shape, dtype=np.uint8)  # Create a blank mask with the same size as original
+        for contour in contours:
+            # Draw the contour on the mask
+            cv2.drawContours(mask, [np.array(contour, dtype=np.int32)], -1, (1), thickness=cv2.FILLED)
+        return mask
+
+class AffDatasetVal(torch.utils.data.Dataset):
+    pixel_mean = torch.Tensor([123.675, 116.28, 103.53]).view(-1, 1, 1)
+    pixel_std = torch.Tensor([58.395, 57.12, 57.375]).view(-1, 1, 1)
+    img_size = 1024
+    ignore_label = 255
+
+    def __init__(
+        self,
+        base_image_dir,
+        tokenizer,
+        vision_tower,
+        precision: str = "fp32",
+        image_size: int = 224,
+    ):
+        self.base_image_dir = base_image_dir
+        self.image_size = image_size
+        self.tokenizer = tokenizer
+        self.precision = precision
+        self.transform = ResizeLongestSide(image_size)
+        self.clip_image_processor = CLIPImageProcessor.from_pretrained(vision_tower)
+
+        self.short_question_list = SHORT_QUESTION_LIST
+        self.answer_list = ANSWER_LIST
+
+        self.data2list = {}
+        self.data2classes = {}
+
+        self.images, self.affs_left, self.affs_right, self.narrations = self.load_data_from_nested_folders(self.base_image_dir)
+
+    def __len__(self):
+        return len(self.images)
+
+    def preprocess(self, x: torch.Tensor) -> torch.Tensor:
+        """Normalize pixel values and pad to a square input."""
+        # Normalize colors
+        x = (x - self.pixel_mean) / self.pixel_std
+
+        # Pad
+        h, w = x.shape[-2:]
+        padh = self.img_size - h
+        padw = self.img_size - w
+        x = F.pad(x, (0, padw, 0, padh))
+        return x
+
+    def __getitem__(self, idx):
+        
+        idx = random.randint(0, self.size - 1)
+        text_prompt, image, taxonomy = self.extract_index_from_h5(self.folder_path_h5, self.h5_names, idx)
+        text_prompt = self.narrations[idx]
+        image = self.images[idx]
+        masks = {}
+        masks['aff_left'] = self.affs_left[idx]
+        masks['aff_right'] = self.affs_right[idx]
+        sampled_classes = [text_prompt]
+        label_left = masks['aff_left'][masks['aff_left'] == 0]
+        label_right = masks['aff_right'][masks['aff_left'] == 0]
+        label_left[label_left == 0] = 255
+        label_right[label_right == 0] = 255
+        label_left -= 1
+        label_right -= 1
+        label_left[label_left == 254] = 255
+        label_right[label_right == 254] = 255
+        label = {
+            'left': torch.from_numpy(label_left).long(),
+            'right': torch.from_numpy(label_right).long()
+        }
+        masks['aff_left'] = torch.from_numpy(masks['aff_left']).unsqueeze(0)
+        masks['aff_right'] = torch.from_numpy(masks['aff_right']).unsqueeze(0)
+
+        image_clip = self.clip_image_processor.preprocess(image, return_tensors="pt")["pixel_values"][0]
+        image = self.transform.apply_image(image)
+        resize = image.shape[:2]
+
+        questions = []
+        answers = []
+        for sampled_cls in sampled_classes:
+            text = sampled_cls
+            question_template = random.choice(self.short_question_list)
+            questions.append(question_template.format(class_name=text.lower()))
+            answers.append(random.choice(self.answer_list))
+
+        conversations = []
+        conv = conversation_lib.default_conversation.copy()
+
+        i = 0
+        while i < len(questions):
+            conv.messages = []
+            conv.append_message(conv.roles[0], questions[i])
+            conv.append_message(conv.roles[1], answers[i])
+            conversations.append(conv.get_prompt())
+            i += 1
+
+        image = self.preprocess(torch.from_numpy(image).permute(2, 0, 1).contiguous())
+
+        return (
+            None,
+            image,
+            image_clip,
+            conversations,
+            masks,
+            label,
+            resize,
+            questions,
+            sampled_classes,
+            taxonomy
+        )
+    
+    def load_data_from_nested_folders(self, root_folder):
+        # Initialize lists to store the content
+        inpaintings = []
+        affs_left = []
+        affs_right = []
+        annotations = []
+
+        # Walk through the first level of directories (level_1_folder)
+        for level_1_folder in os.listdir(root_folder):
+            level_1_folder_path = os.path.join(root_folder, level_1_folder)
+
+            if os.path.isdir(level_1_folder_path):
+                # Walk through the second level of directories (level_2_folder)
+                for level_2_folder in os.listdir(level_1_folder_path):
+                    level_2_folder_path = os.path.join(level_1_folder_path, level_2_folder)
+
+                    if os.path.isdir(level_2_folder_path):
+                        # Initialize variables for the current level_2 folder
+                        inpainting_path = None
+                        aff_left_path = None
+                        aff_right_path = None
+                        annotation_path = None
+
+                        # Find the files in the level_2 folder
+                        for file in os.listdir(level_2_folder_path):
+                            file_path = os.path.join(level_2_folder_path, file)
+                            
+                            if file == "inpainting.png":
+                                inpainting_path = file_path
+                            elif file == "aff_left.png":
+                                aff_left_path = file_path
+                            elif file == "aff_right.png":
+                                aff_right_path = file_path
+                            elif file == "annotation.json":
+                                annotation_path = file_path
+
+                        # Load inpainting image (make sure it exists)
+                        if inpainting_path:
+                            inpainting = np.array(Image.open(inpainting_path))
+                            inpaintings.append(inpainting)
+                        else:
+                            print(f"Warning: inpainting.png missing in {level_2_folder_path}")
+
+                        # Load aff_left and aff_right, handling missing files
+                        aff_left = None
+                        aff_right = None
+
+                        # If both are missing, handle that case
+                        if aff_left_path and aff_right_path:
+                            aff_left = np.array(Image.open(aff_left_path))
+                            aff_right = np.array(Image.open(aff_right_path))
+                        elif aff_left_path:
+                            aff_left = np.array(Image.open(aff_left_path))
+                            # If aff_left exists but aff_right is missing, create a zero-like array with the same shape as aff_left
+                            aff_right = np.zeros_like(aff_left)
+                        elif aff_right_path:
+                            aff_right = np.array(Image.open(aff_right_path))
+                            # If aff_right exists but aff_left is missing, create a zero-like array with the same shape as aff_right
+                            aff_left = np.zeros_like(aff_right)
+                        else:
+                            print(f"Warning: Neither aff_left.png nor aff_right.png found in {level_2_folder_path}")
+                            # Handle the case where both are missing (default shape)
+                            aff_left = np.zeros((1, 1))  # Use an appropriate default shape
+                            aff_right = np.zeros_like(aff_left)
+
+                        # Add the images to the lists
+                        affs_left.append(aff_left)
+                        affs_right.append(aff_right)
+
+                        # Load annotation
+                        if annotation_path:
+                            with open(annotation_path, 'r') as json_file:
+                                annotation_data = json.load(json_file)
+                                narration = annotation_data.get('narration', "")
+                                annotations.append(narration)
+                        else:
+                            print(f"Warning: annotation.json missing in {level_2_folder_path}")
+
+        return inpaintings, affs_left, affs_right, annotations
