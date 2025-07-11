@@ -223,7 +223,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default=None)
     parser.add_argument('--limit', default=30000, type=float)
     parser.add_argument('--categories', default=[], nargs='+')
-    parser.add_argument('--verb-class-file', default='../../dataset/EPIC_DATA/EPIC_100_verb_classes.csv')
+    parser.add_argument('--verb-class-file', default='../dataset/EPIC_DATA/EPIC_100_verb_classes.csv')
 
     args = parser.parse_args()
     vals = vars(args)

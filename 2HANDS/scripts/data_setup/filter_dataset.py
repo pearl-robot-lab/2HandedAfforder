@@ -119,11 +119,11 @@ def is_valid(folder, limit, categories, verb_classes):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('name')
-    parser.add_argument('--dataset', default='../../../dataset/EPIC_DATA/dataset_bimanual')
+    parser.add_argument('--dataset', default='../../dataset/EPIC_DATA/dataset_bimanual')
     parser.add_argument('--copy', default=None)
     parser.add_argument('--categories', default='all')
     parser.add_argument('--limit', default=20000)
-    parser.add_argument('--verb-class-file', default='../../../dataset/EPIC_DATA/EPIC_100_verb_classes.csv')
+    parser.add_argument('--verb-class-file', default='../../dataset/EPIC_DATA/EPIC_100_verb_classes.csv')
 
     args = parser.parse_args()
     vals = vars(args)
