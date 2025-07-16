@@ -9,12 +9,10 @@ from funcy import lmap
 from PIL import Image
 
 def rename_files_video(folder_path):
-    #folder_path = os.path.join("../EPIC_DATA/frames", video_name.split("_")[0], video_name)
     for filename in os.listdir(folder_path):
         if filename[0] != "P" and filename[0] != "f" and len(filename) < 12:
             print("files already configured")
             return
-        # Split filename by "_"
         parts = filename.split("_")
         
         # Search for the split string with at least three "0"
