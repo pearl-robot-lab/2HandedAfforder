@@ -21,43 +21,43 @@ fi
 
 # XMem Mask Propagation
 cd scripts
-python affordance_extraction_preparation.py --rename_files_video ${DATA_DIR}/frames/$1/$2 && \
-cd ../modules/XMem_Batch && \
-python demo.py --images ${DATA_DIR}/frames/$1/$2 && \
-rm -r workspace/$2
+# python affordance_extraction_preparation.py --rename_files_video ${DATA_DIR}/frames/$1/$2 && \
+# cd ../modules/XMem_Batch && \
+# python demo.py --images ${DATA_DIR}/frames/$1/$2 && \
+# rm -r workspace/$2
 
-# Preprocess Masks for Inpainting
-cd ../../scripts
-echo 'Starting preprocessing'
-python affordance_extraction_preparation.py --dilate_and_recolor ${DATA_DIR}/xmem_masks/$2 10 && \
-python affordance_extraction_preparation.py --preprocess_for_agent_inpainting ../modules/XMem_Batch/segmentations/$2/hand/both ${DATA_DIR}/frames/$1/$2 2 && \
+# # Preprocess Masks for Inpainting
+# cd ../../scripts
+# echo 'Starting preprocessing'
+# python affordance_extraction_preparation.py --dilate_and_recolor ${DATA_DIR}/xmem_masks/$2 10 && \
+# python affordance_extraction_preparation.py --preprocess_for_agent_inpainting ../modules/XMem_Batch/segmentations/$2/hand/both ${DATA_DIR}/frames/$1/$2 2 && \
 
-# Agent Inpainting
-cd ../modules/agent_inpainting && \
-python demo_script_batch.py ../XMem_Batch/segmentations/$2/hand/both ${DATA_DIR}/hand_inpainting/$2 && \
+# # Agent Inpainting
+# cd ../modules/agent_inpainting && \
+# python demo_script_batch.py ../XMem_Batch/segmentations/$2/hand/both ${DATA_DIR}/hand_inpainting/$2 && \
 
-# Delete Temporary Folder
-rm -r ../XMem_Batch/segmentations/$2 && \
-cd ../../scripts && \
+# # Delete Temporary Folder
+# rm -r ../XMem_Batch/segmentations/$2 && \
+# cd ../../scripts && \
 
-# Preprocess Data for Mask Completion
-python affordance_extraction_preparation.py --preprocess_for_mask_completion ${DATA_DIR}/frames/$1/$2/ ${DATA_DIR}/hand_inpainting/$2 ${DATA_DIR}/seq_for_mask_completion/$2 && \
-cd ../modules/sam2 && \
+ # Preprocess Data for Mask Completion
+#  python affordance_extraction_preparation.py --preprocess_for_mask_completion ${DATA_DIR}/frames/$1/$2/ ${DATA_DIR}/hand_inpainting/$2 ${DATA_DIR}/seq_for_mask_completion/$2 && \
+# cd ../modules/sam2 && \
 
-# Mask Completion
-echo "Starting Mask Completion" && \
-python mask_completion.py --videos ${DATA_DIR}/seq_for_mask_completion/$2 --masks-left ${DATA_DIR}/xmem_masks/$2/object/left --masks-right ${DATA_DIR}/xmem_masks/$2/object/right --out ${DATA_DIR}/completed_object_masks/$2 && \
-cd ../../scripts && \
+# # Mask Completion
+# echo "Starting Mask Completion" && \
+# python mask_completion.py --videos ${DATA_DIR}/seq_for_mask_completion/$2 --masks-left ${DATA_DIR}/xmem_masks/$2/object/left --masks-right ${DATA_DIR}/xmem_masks/$2/object/right --out ${DATA_DIR}/completed_object_masks/$2 && \
+# cd ../../scripts && \
 
-# Affordance Extraction
-echo "Post Processing Mask Differences" && \
-python affordance_extraction_preparation.py --extract_affordances ${DATA_DIR}/completed_object_masks/$2 ${DATA_DIR}/xmem_masks/$2/hand ${DATA_DIR}/affordance_masks/$2 && \
-python affordance_extraction_preparation.py --process_affordances ${DATA_DIR}/affordance_masks/$2 10 && \
+# # Affordance Extraction
+# echo "Post Processing Mask Differences" && \
+# python affordance_extraction_preparation.py --extract_affordances ${DATA_DIR}/completed_object_masks/$2 ${DATA_DIR}/xmem_masks/$2/hand ${DATA_DIR}/affordance_masks/$2 && \
+# python affordance_extraction_preparation.py --process_affordances ${DATA_DIR}/affordance_masks/$2 10 && \
 
-# Preprocess and Reconfigure Data for Dataset
-echo "Preprocess and reconfigure data for dataset"
-#python affordance_extraction_preparation.py --modify_folder_to_sequence ${DATA_DIR}/xmem_masks/$2/hand ${DATA_DIR}/bimanual_annotations_json/$2 ${DATA_DIR}/sequences_bimanual/$2
-python affordance_extraction_preparation.py --apply_padding ${DATA_DIR}/xmem_masks/$2/object && \
+# # Preprocess and Reconfigure Data for Dataset
+# echo "Preprocess and reconfigure data for dataset"
+# #python affordance_extraction_preparation.py --modify_folder_to_sequence ${DATA_DIR}/xmem_masks/$2/hand ${DATA_DIR}/bimanual_annotations_json/$2 ${DATA_DIR}/sequences_bimanual/$2
+# python affordance_extraction_preparation.py --apply_padding ${DATA_DIR}/xmem_masks/$2/object && \
 
 # Setup Dataset
 echo "Setup Dataset"
