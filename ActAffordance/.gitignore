@@ -1,7 +1,7 @@
 agent_inpainting
 baselines
 dataset_bench
-data
+data/
 dataset_bench_updated
 dset_folders
 frames
