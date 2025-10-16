@@ -338,7 +338,7 @@ def visualize_examples(benchmark_folder, comparison_folder, visualize_dir, capti
 
 def main():
     parser = argparse.ArgumentParser(description="Calculate IoU between corresponding leaf subfolders in benchmark and comparison folders.")
-    parser.add_argument('--benchmark_folder', type=str, default='data/cropped', help="Benchmark folder containing subfolders and leaf subfolders with 'aff_left.png' and 'aff_right.png'.")
+    parser.add_argument('--benchmark_folder', type=str, default='../../data/cropped', help="Benchmark folder containing subfolders and leaf subfolders with 'aff_left.png' and 'aff_right.png'.")
     parser.add_argument('--comparison_folder', type=str, help="Comparison folder containing subfolders and leaf subfolders with 'aff_left.png' and/or 'aff_right.png'.")
     parser.add_argument('--files_folder', type=str, default=None)
     parser.add_argument('--visualize', action='store_true', help="If set, visualize 20 random examples.")
