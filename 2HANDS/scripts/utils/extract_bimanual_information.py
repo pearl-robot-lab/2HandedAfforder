@@ -7,10 +7,10 @@ import glob
 import json
 import csv
 import pandas as pd
-import os
 from tqdm import tqdm
-import json
-import collections, functools, operator
+import collections
+import functools
+import operator
 from argparse import ArgumentParser
 from PIL import Image
 from scipy.stats import norm

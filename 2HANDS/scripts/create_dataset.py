@@ -138,7 +138,7 @@ def build_dataset(dir, out, name, limit, categories, verb_class_file):
     verb_classes = extract_verb_class_dict(verb_class_file)
     for folder in folders:
         folder_path = os.path.join(dir, folder)
-        if is_valid(folder_path, limit, categories, verb_classes) or True:
+        if is_valid(folder_path, limit, categories, verb_classes):
             valid_counter += 1
             files = os.listdir(folder_path)
             f = open(os.path.join(folder_path, "annotation.json"))
@@ -204,8 +204,6 @@ def build_dataset(dir, out, name, limit, categories, verb_class_file):
         'taxonomy' : np.array(taxonomy, dtype=np.uint8)
     }
 
-
-    import pdb; pdb.set_trace()
     convert_masks_to_json(np.array(aff_left, dtype=np.uint8), np.array(aff_right, dtype=np.uint8), np.array(obj_mask_left, dtype=np.uint8), np.array(obj_mask_right, dtype=np.uint8), os.path.join(out, 'jsons', name + ".json"))
     hdf5 = h5py.File(os.path.join(out, 'h5', name + ".h5"), 'w')
     grp = hdf5.create_group('data')

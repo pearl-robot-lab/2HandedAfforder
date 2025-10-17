@@ -86,9 +86,3 @@ def rename_files_in_folder(folder_path):
                 os.path.join(folder_path, new_filename)
             )
             print(f"Renamed '{filename}' to '{new_filename}'")
-
-# Example usage
-folder_path = '../EPIC_DATA/hdf5_sets/datasets/dset'
-
-# Example usage:
-rename_h5_files_with_indices('../EPIC_DATA/hdf5_sets/datasets/dset_updated/jsons')

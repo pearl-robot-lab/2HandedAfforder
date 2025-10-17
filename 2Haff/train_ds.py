@@ -72,7 +72,8 @@ def parse_args(args):
     parser.add_argument("--vqa_data", default="llava_instruct_150k", type=str)
     parser.add_argument("--reason_seg_data", default="ReasonSeg|train", type=str)
     parser.add_argument("--val_dataset", default="ReasonSeg|val", type=str)
-    parser.add_argument("--dataset_dir", default="./dataset", type=str)
+    parser.add_argument("--dataset_dir", default="./dataset", type=str, 
+                        help="Local dataset directory or HuggingFace dataset identifier (e.g., 'sjauhri/2HANDS' for 2HANDS dataset)")
     parser.add_argument("--log_base_dir", default="./runs", type=str)
     parser.add_argument("--exp_name", default="lisa", type=str)
     parser.add_argument("--epochs", default=10, type=int)
@@ -257,27 +258,49 @@ def main(args):
     clip_image_processor = CLIPImageProcessor.from_pretrained(model.config.vision_tower)
     world_size = torch.cuda.device_count()
     args.distributed = world_size > 1
-    train_dataset = HybridDataset(
-        args.dataset_dir,
-        tokenizer,
-        args.vision_tower,
-        False,
-        samples_per_epoch=2
-        * args.grad_accumulation_steps
-        * args.steps_per_epoch
-        * world_size,
-        precision=args.precision,
-        image_size=args.image_size,
-        num_classes_per_sample=args.num_classes_per_sample,
-        exclude_val=args.exclude_val,
-        dataset=args.dataset,
-        sample_rate=[float(x) for x in args.sample_rates.split(",")],
-        sem_seg_data=args.sem_seg_data,
-        refer_seg_data=args.refer_seg_data,
-        vqa_data=args.vqa_data,
-        reason_seg_data=args.reason_seg_data,
-        explanatory=args.explanatory,
-    )
+    
+    # Check if we're using HuggingFace dataset
+    use_hf_dataset = '/' in args.dataset_dir and not os.path.exists(args.dataset_dir)
+    
+    if use_hf_dataset:
+        # Use AffDataset for HuggingFace datasets
+        print(f"Using AffDataset for HuggingFace dataset: {args.dataset_dir}")
+        train_dataset = AffDataset(
+            args.dataset_dir,
+            tokenizer,
+            args.vision_tower,
+            False,  # inference=False for training
+            samples_per_epoch=args.batch_size
+            * args.grad_accumulation_steps
+            * args.steps_per_epoch
+            * world_size,
+            precision=args.precision,
+            image_size=args.image_size,
+        )
+    else:
+        # Use HybridDataset for local datasets
+        print(f"Using HybridDataset for local dataset: {args.dataset_dir}")
+        train_dataset = HybridDataset(
+            args.dataset_dir,
+            tokenizer,
+            args.vision_tower,
+            False,
+            samples_per_epoch=2
+            * args.grad_accumulation_steps
+            * args.steps_per_epoch
+            * world_size,
+            precision=args.precision,
+            image_size=args.image_size,
+            num_classes_per_sample=args.num_classes_per_sample,
+            exclude_val=args.exclude_val,
+            dataset=args.dataset,
+            sample_rate=[float(x) for x in args.sample_rates.split(",")],
+            sem_seg_data=args.sem_seg_data,
+            refer_seg_data=args.refer_seg_data,
+            vqa_data=args.vqa_data,
+            reason_seg_data=args.reason_seg_data,
+            explanatory=args.explanatory,
+        )
 
     if args.no_eval == False:
         """
@@ -734,21 +757,6 @@ def validate(val_loader, model_engine, epoch, writer, args):
         #wandb.log({"HD": total_hd})
     return total_iou, 0
 
-# def preprocess(
-#     x,
-#     pixel_mean=torch.Tensor([123.675, 116.28, 103.53]).view(-1, 1, 1),
-#     pixel_std=torch.Tensor([58.395, 57.12, 57.375]).view(-1, 1, 1),
-#     img_size=1024,
-# ) -> torch.Tensor:
-#     """Normalize pixel values and pad to a square input."""
-#     # Normalize colors
-#     x = (x - pixel_mean) / pixel_std
-#     # Pad
-#     h, w = x.shape[-2:]
-#     padh = img_size - h
-#     padw = img_size - w
-#     x = F.pad(x, (0, padw, 0, padh))
-#     return x
 
 def calculate_iou(mask1, mask2):
     """
@@ -803,136 +811,6 @@ def calculate_hausdorff(mask1, mask2):
     if len(mask1.shape) == 1:
         mask1 = np.array([mask1])
     return directed_hausdorff(mask2, mask1)[0], max(directed_hausdorff(mask1, mask2)[0], directed_hausdorff(mask2, mask1)[0])
-
-# def validate(model_engine, epoch, tokenizer, clip_image_processor, args):
-#     transform = ResizeLongestSide(args.image_size)
-#     total_iou = 0
-#     total_hd = 0
-#     benchsize_ctr = 0
-#     for folder_name in os.listdir(args.benchmark_dir):
-#         subfolder_path = os.path.join(args.benchmark_dir, folder_name)
-#         subfolders = os.listdir(subfolder_path)
-#         for subfolder in subfolders:
-#             folder_path = os.path.join(subfolder_path, subfolder)
-            
-#             if not os.path.isdir(folder_path):
-#                 continue  # Skip non-directory files
-
-#             image_path = os.path.join(folder_path, 'inpainting.png')
-#             #image_path = os.path.join(folder_path, 'inpainting.png')
-#             annotation_path = os.path.join(folder_path, 'annotation.json')
-#             gt_aff_left_path = os.path.join(folder_path, 'aff_left.png')
-#             gt_aff_right_path = os.path.join(folder_path, 'aff_right.png')
-            
-#             if not os.path.exists(image_path) or not os.path.exists(annotation_path):
-#                 print(f"Required files not found in {folder_path}, skipping...")
-#                 continue
-
-#             if not os.path.exists(gt_aff_left_path):
-#                 gt_aff = cv2.imread(gt_aff_right_path, cv2.IMREAD_GRAYSCALE)
-#             elif not os.path.exists(gt_aff_right_path):
-#                 gt_aff = cv2.imread(gt_aff_left_path, cv2.IMREAD_GRAYSCALE)
-#             else:
-#                 gt_aff_left = cv2.imread(gt_aff_left_path, cv2.IMREAD_GRAYSCALE)
-#                 gt_aff_right = cv2.imread(gt_aff_right_path, cv2.IMREAD_GRAYSCALE)
-#                 gt_aff = cv2.bitwise_or(gt_aff_left, gt_aff_right)
-
-#             # Load the narration from the annotation.json
-#             with open(annotation_path, 'r') as annotation_file:
-#                 annotation_data = json.load(annotation_file)
-#                 prompt = annotation_data.get('narration', '')
-
-#             prompt = DEFAULT_IMAGE_TOKEN + "\n" + "Where would you interact with the object to perform action " + prompt
-#             if args.use_mm_start_end:
-#                 replace_token = (
-#                     DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN
-#                 )
-#                 prompt = prompt.replace(DEFAULT_IMAGE_TOKEN, replace_token)
-            
-#             # Load the image
-#             image_np = cv2.imread(image_path)
-#             image_np = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
-#             original_size_list = [image_np.shape[:2]]
-
-#             image_clip = (
-#                 clip_image_processor.preprocess(image_np, return_tensors="pt")["pixel_values"]
-#                 [0].unsqueeze(0).cuda()
-#             )
-#             if args.precision == "bf16":
-#                 image_clip = image_clip.bfloat16()
-#             elif args.precision == "fp16":
-#                 image_clip = image_clip.half()
-#             else:
-#                 image_clip = image_clip.float()
-
-#             image = transform.apply_image(image_np)
-#             resize_list = [image.shape[:2]]
-
-#             image = (
-#                 preprocess(torch.from_numpy(image).permute(2, 0, 1).contiguous())
-#                 .unsqueeze(0).cuda()
-#             )
-#             if args.precision == "bf16":
-#                 image = image.bfloat16()
-#             elif args.precision == "fp16":
-#                 image = image.half()
-#             else:
-#                 image = image.float()
-
-#             input_ids = tokenizer_image_token(prompt, tokenizer, return_tensors="pt")
-#             input_ids = input_ids.unsqueeze(0).cuda()
-
-#             output_ids, pred_masks_left, pred_masks_right, taxonomies = model_engine.evaluate(
-#                 image_clip,
-#                 image,
-#                 input_ids,
-#                 resize_list,
-#                 original_size_list,
-#                 max_new_tokens=512,
-#                 tokenizer=tokenizer,
-#             )
-#             output_ids = output_ids[0][output_ids[0] != IMAGE_TOKEN_INDEX]
-
-#             #text_output = tokenizer.decode(output_ids, skip_special_tokens=False)
-#             #text_output = text_output.replace("\n", "").replace("  ", " ")
-#             #print("text_output: ", text_output)
-#             #import pdb; pdb.set_trace()
-#             taxonomy = taxonomies[0]
-#             if taxonomy.numel() != 0:
-#                 if torch.argmax(taxonomy) == 0:
-#                     pred_mask = pred_masks_left[0].detach().cpu().numpy()[0]
-#                     pred_mask[pred_mask > 0] = 255
-#                     pred_mask[pred_mask <= 0] = 0
-
-#                 elif torch.argmax(taxonomy) == 1:
-#                     pred_mask = pred_masks_right[0].detach().cpu().numpy()[0]
-#                     pred_mask[pred_mask > 0] = 255
-#                     pred_mask[pred_mask <= 0] = 0
-#                 else:
-#                     pred_mask_left = pred_masks_left[0].detach().cpu().numpy()[0]
-#                     pred_mask_right = pred_masks_right[0].detach().cpu().numpy()[0]
-#                     pred_mask_left[pred_mask_left > 0] = 255
-#                     pred_mask_left[pred_mask_left <= 0] = 0                    
-#                     pred_mask_right[pred_mask_right> 0] = 255
-#                     pred_mask_right[pred_mask_right <= 0] = 0
-#                     pred_mask = cv2.bitwise_or(pred_mask_left, pred_mask_right)
-#             else:
-#                 pred_mask_left = pred_masks_left[0].detach().cpu().numpy()[0]
-#                 pred_mask_right = pred_masks_right[0].detach().cpu().numpy()[0]
-#                 pred_mask_left[pred_mask_left > 0] = 255
-#                 pred_mask_left[pred_mask_left <= 0] = 0                    
-#                 pred_mask_right[pred_mask_right> 0] = 255
-#                 pred_mask_right[pred_mask_right <= 0] = 0
-#                 pred_mask = cv2.bitwise_or(pred_mask_left, pred_mask_right)
-#             iou = calculate_iou(pred_mask, gt_aff)
-#             hd = calculate_hausdorff(pred_mask, gt_aff)
-#             total_hd += hd
-#             total_iou += iou
-#             benchsize_ctr += 1
-#     wandb.log({'iou': total_iou/benchsize_ctr})
-#     wandb.log({'hd': total_hd/benchsize_ctr})
-
-
 
 
 if __name__ == "__main__":

@@ -112,6 +112,58 @@ pip install -r requirements.txt
 pip install flash-attn --no-build-isolation
 ```
 
+## Using HuggingFace Models and Datasets
+
+### Model Loading
+**For Inference**: The trained 2HandedAfforder model is available on HuggingFace at `sjauhri/2HAff`:
+```bash
+# Inference with HuggingFace model (default)
+python inference.py --version="sjauhri/2HAff" --benchmark-dir=/path/to/benchmark
+
+# Or use local model weights
+python inference.py --version="/path/to/local/weights" --benchmark-dir=/path/to/benchmark
+```
+
+**For Training**: Use the base LLaVA model as specified in the original training instructions below. The training starts from the pre-trained LLaVA model:
+```bash
+deepspeed --master_port=24999 train_ds.py \
+  --version="liuhaotian/llava-v1.5-13b" \
+  --dataset_dir="sjauhri/2HANDS" \
+  --vision_pretrained="PATH_TO_SAM" \
+  --exp_name="2haff-training"
+```
+
+### Dataset Loading
+The 2HANDS dataset is available on HuggingFace at `sjauhri/2HANDS`. The dataset loading code now supports both local and HuggingFace loading:
+
+#### Using HuggingFace Dataset
+```python
+from utils.aff_dataset import AffDataset
+
+# Load from HuggingFace
+dataset = AffDataset(
+    base_image_dir="sjauhri/2HANDS",  # HuggingFace identifier
+    tokenizer=tokenizer,
+    vision_tower=vision_tower,
+    inference=False
+)
+```
+
+#### Using Local Dataset
+```python
+from utils.aff_dataset import AffDataset
+
+# Load from local directory
+dataset = AffDataset(
+    base_image_dir="/path/to/local/dataset",  # Local path
+    tokenizer=tokenizer,
+    vision_tower=vision_tower,
+    inference=False
+)
+```
+
+The code automatically detects whether you're using a HuggingFace identifier or a local path and loads accordingly.
+
 ## Training
 ### Training Data Preparation
 The training data consists of 4 types of data:

@@ -13,6 +13,12 @@ from PIL import Image
 from pycocotools.coco import COCO
 from transformers import CLIPImageProcessor
 
+try:
+    from datasets import load_dataset
+    HF_DATASETS_AVAILABLE = True
+except ImportError:
+    HF_DATASETS_AVAILABLE = False
+
 from model.llava import conversation as conversation_lib
 from model.segment_anything.utils.transforms import ResizeLongestSide
 
@@ -75,9 +81,79 @@ class AffDataset(torch.utils.data.Dataset):
         self.data2list = {}
         self.data2classes = {}
 
+        # Check if base_image_dir is a HuggingFace dataset identifier
+        self.use_hf_dataset = self._is_hf_dataset_identifier(base_image_dir)
+        
+        if self.use_hf_dataset:
+            print(f"Loading dataset from HuggingFace: {base_image_dir}")
+            self._load_from_huggingface(base_image_dir)
+        else:
+            print(f"Loading dataset from local directory: {base_image_dir}")
+            self._load_from_local(base_image_dir)
+
+    def _is_hf_dataset_identifier(self, path):
+        """Check if the path is a HuggingFace dataset identifier (e.g., 'user/dataset')."""
+        # HuggingFace identifiers typically have format "user/dataset" and don't exist as local paths
+        has_slash = '/' in path
+        path_exists = os.path.exists(path)
+        
+        print(f"DEBUG: Checking if '{path}' is HF dataset:")
+        print(f"  - Has '/': {has_slash}")
+        print(f"  - Path exists: {path_exists}")
+        print(f"  - HF_DATASETS_AVAILABLE: {HF_DATASETS_AVAILABLE}")
+        
+        if has_slash and not path_exists and HF_DATASETS_AVAILABLE:
+            return True
+        
+        if has_slash and not path_exists and not HF_DATASETS_AVAILABLE:
+            raise ImportError(
+                f"The path '{path}' appears to be a HuggingFace dataset identifier, "
+                f"but the 'datasets' library is not available. "
+                f"Please install it with: pip install datasets"
+            )
+        
+        return False
+
+    def _load_from_huggingface(self, dataset_name):
+        """Load dataset from HuggingFace."""
+        if not HF_DATASETS_AVAILABLE:
+            raise ImportError("datasets library not available. Install with: pip install datasets")
+        
+        # Load the dataset from HuggingFace
+        dataset = load_dataset(dataset_name, split="train")
+        
+        # Extract data from the HuggingFace dataset
+        self.hf_data = []
+        self.aff_masks_left = []
+        self.aff_masks_right = []
+        self.original_size = None
+        
+        for idx, item in enumerate(dataset):
+            # Extract the data based on the dataset structure
+            # Assuming structure similar to the web search results
+            if self.original_size is None and 'masks' in item and 'original_size' in item['masks']:
+                self.original_size = item['masks']['original_size']
+            
+            # Store the item for later access
+            self.hf_data.append(item)
+            
+            # Extract masks
+            if 'masks' in item:
+                masks = item['masks']
+                self.aff_masks_left.append(masks.get('aff_left', []))
+                self.aff_masks_right.append(masks.get('aff_right', []))
+            else:
+                self.aff_masks_left.append([])
+                self.aff_masks_right.append([])
+        
+        self.size = len(self.hf_data)
+        print(f"Loaded {self.size} samples from HuggingFace dataset")
+
+    def _load_from_local(self, base_image_dir):
+        """Load dataset from local directory."""
         #self.sem_seg_datas = sem_seg_data.split("||")
-        self.image_dir = os.path.join(self.base_image_dir, "h5")
-        self.json_dir = os.path.join(self.base_image_dir, "jsons")
+        self.image_dir = os.path.join(base_image_dir, "h5")
+        self.json_dir = os.path.join(base_image_dir, "jsons")
         def extract_number(filename):
             # Use regular expression to extract the first number from the filename (before the first underscore or before the extension)
             match = re.search(r'(\d+)', filename)
@@ -122,7 +198,11 @@ class AffDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         
         idx = random.randint(0, self.size - 1)
-        text_prompt, image, taxonomy = self.extract_index_from_h5(self.image_dir, self.h5_names, idx)
+        
+        if self.use_hf_dataset:
+            text_prompt, image, taxonomy = self._extract_from_hf_dataset(idx)
+        else:
+            text_prompt, image, taxonomy = self.extract_index_from_h5(self.image_dir, self.h5_names, idx)
         sampled_classes = [text_prompt]
         mask_data = {}
         mask_data['aff_left'] = self.aff_masks_left[idx]
@@ -198,6 +278,31 @@ class AffDataset(torch.utils.data.Dataset):
                 questions,
                 sampled_classes
             )
+    
+    def _extract_from_hf_dataset(self, idx):
+        """Extract data from HuggingFace dataset at given index."""
+        item = self.hf_data[idx]
+        
+        # Extract narration/text prompt
+        text_prompt = item.get('narration', item.get('text', ''))
+        if isinstance(text_prompt, bytes):
+            text_prompt = text_prompt.decode('utf-8')
+        
+        # Extract image
+        if 'image' in item:
+            image = np.array(item['image'])
+        elif 'inpainted' in item:
+            image = np.array(item['inpainted'])
+        else:
+            # Fallback: create a dummy image
+            image = np.zeros((224, 224, 3), dtype=np.uint8)
+        
+        # Extract taxonomy
+        taxonomy = item.get('taxonomy', 2)  # Default to 2 (both hands)
+        if isinstance(taxonomy, bytes):
+            taxonomy = int(taxonomy.decode('utf-8'))
+        
+        return text_prompt, image, taxonomy
     
     def get_file_for_index(self, folder_path, folder_list, index):
         # List all h5 files and find which file contains the target index based on the filename

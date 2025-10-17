@@ -2,9 +2,7 @@ import csv
 import os
 import glob
 import json
-import os
 from tqdm import tqdm
-import json
 from argparse import ArgumentParser
 
 def add_narrations(json_folders_path, narration_file):
@@ -27,15 +25,13 @@ def add_narrations(json_folders_path, narration_file):
                 for json_file in json_files:
                     json_file_path = os.path.join(json_files_path, json_file)
                     if int(json_file.split('.')[0]) in range(int(start_frame), int(stop_frame) + 1):
-                        f = open(json_file_path, "r")
-                        data = json.load(f)
+                        with open(json_file_path, "r") as f:
+                            data = json.load(f)
                         data["narration"] = narration
                         data["verb"] = verb
                         data["noun"] = noun
-                        f.close()
-                        f = open(json_file_path, "w")
-                        json.dump(data, f)
-                        f.close()
+                        with open(json_file_path, "w") as f:
+                            json.dump(data, f)
 
 if __name__ == '__main__':
     parser = ArgumentParser()

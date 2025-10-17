@@ -74,3 +74,6 @@ python scripts/data_processing/preprocess_video.py video.mp4 "task description" 
 python scripts/utils/gaussian.py --input_dir path/to/images --threshold 0.5
 ```
 
+
+
+
