@@ -52,3 +52,16 @@ python add_narrations.py \
 
 **Note:** Replace `/path/to/` with your actual absolute paths.
 
+## Run Pipeline
+
+Process EPIC-KITCHENS videos through the data generation pipeline:
+
+```bash
+bash pipeline.bash PXX PXX_XX <set>
+```
+
+**Parameters:**
+- `PXX`: Participant ID (e.g., P01, P02)
+- `PXX_XX`: Video ID (e.g., P01_01)
+- `<set>`: Dataset split (train/validation)
+
