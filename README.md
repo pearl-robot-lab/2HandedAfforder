@@ -1,37 +1,46 @@
-# Data Generation for 2HandedAfforder
-This repository extract the ground truth affordance annotation for the bimanual affordance task from the EPIC-KITCHENS dataset
+# 2HandedAfforder
 
-## Step 1: Installation
-* `git clone https://github.com/MarvinHei/2HandedAfforder_DataGen.git`
-* `conda create -n "2handedafforder" python=3.8`
-* `conda activate 2handedafforder`
-* `conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch`
-* Others: `pip install -r requirements.txt`
+Official repository for **2HandedAfforder: Learning Precise Actionable Bimanual Affordances from Human Videos**, published at ICCV 2025.
 
-## Step 2: Generate initial sparse masks
-Download the VISOR-VIS annotations from https://data.bris.ac.uk/data/dataset/2v6cgv1x04ol22qp9rm9x2j6a7 and place it in `VISOR-VIS_Mod/epick_visor`.
-Within `VISOR-VIS_Mod` run
-```
-python demo.py
-```
-to generate the sparse masks. These will get stored in `../EPIC_DATA/segmentations`
+**Best Paper Finalist** @ Human to Robot (H2R) workshop at CoRL 2025
 
-## Step 3: Download the model checkpoints for MI-GAN, agent-inpainting and XMem
+## About
 
-See README.md of submodules
+This repository contains the code and tools for learning precise, actionable bimanual affordances from human activity videos. Our framework extracts affordance data from video datasets and provides a VLM-based affordance prediction model that can identify task-specific object regions for both single-handed and coordinated two-handed manipulation tasks.
 
-## Step 4: Run the data processing pipeline
-```
-./pipeline.bash PXX PXX_XX
-```
-Exchange XX for the video file of EPIC-KITCHENS you want to process. Each individual step will get stored within the `EPIC_DATA` folder.
-To delete the entire processed data of a video from the dataset, do
-```
-./delete_video.bash PXX_XX
-```
-The video itself will not be deleted
+Key features:
+- **2HANDS Dataset**: Precise object affordance region segmentations with affordance class-labels extracted from human activity videos
+- **2HandedAfforder Model**: VLM-based affordance prediction for bimanual manipulation tasks
+- **Actionable Affordances**: Predicted affordance regions that can be directly used for robotic manipulation
 
-## Step 5: Convert the data into a HDF5 format
+## Resources
+
+For more information, including paper, video, dataset, and detailed documentation, please visit:
+
+**Project Website**: https://sites.google.com/view/2handedafforder
+
+## Citation
+
+If you find this work useful, please cite:
+
+```bibtex
+@InProceedings{Heidinger_2025_ICCV,
+  author = {Heidinger, Marvin and Jauhri, Snehal and Prasad, Vignesh and Chalvatzaki, Georgia},
+  title = {2HandedAfforder: Learning Precise Actionable Bimanual Affordances from Human Videos},
+  booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  month = {October},
+  year = {2025},
+  pages = {14743-14753}
+}
 ```
-./post_process.bash PXX_XX
-```
+
+## Authors
+
+Marvin Heidinger\*, Snehal Jauhri\*, Vignesh Prasad, and Georgia Chalvatzaki  
+PEARL Lab, TU Darmstadt, Germany
+
+\* Equal contribution
+
+## Acknowledgements
+
+This project has received funding from the European Union's Horizon Europe programme under Grant Agreement no. 101120823
