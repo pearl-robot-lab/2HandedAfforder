@@ -8,10 +8,10 @@ Official repository for **2HandedAfforder: Learning Precise Actionable Bimanual 
 
 This repository contains the code and tools for learning precise, actionable bimanual affordances from human activity videos. Our framework extracts affordance data from video datasets and provides a VLM-based affordance prediction model that can identify task-specific object regions for both single-handed and coordinated two-handed manipulation tasks.
 
-Key features:
+Release includes:
 - **2HANDS Dataset**: Precise object affordance region segmentations with affordance class-labels extracted from human activity videos
 - **2HandedAfforder Model**: Weights of our model, a VLM-based affordance predictor for bimanual manipulation tasks
-- **Actionable Affordances**: Predicted affordance regions that can be directly used for robotic manipulation
+- **ActAffordance**: A human-annotated benchmark for evaluation of bimanual text-prompted affordances
 
 ## Resources
 
