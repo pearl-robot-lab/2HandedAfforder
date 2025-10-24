@@ -10,7 +10,7 @@ This repository contains the code and tools for learning precise, actionable bim
 
 Key features:
 - **2HANDS Dataset**: Precise object affordance region segmentations with affordance class-labels extracted from human activity videos
-- **2HandedAfforder Model**: VLM-based affordance prediction for bimanual manipulation tasks
+- **2HandedAfforder Model**: Weights of our model, a VLM-based affordance predictor for bimanual manipulation tasks
 - **Actionable Affordances**: Predicted affordance regions that can be directly used for robotic manipulation
 
 ## Resources
